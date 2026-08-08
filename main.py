@@ -23,11 +23,12 @@ def startup_event():
 def home(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
-# API de búsqueda mejorada con Filtros
+# API de búsqueda mejorada con Filtros de Rareza y Color
 @app.get("/api/search")
 def search_cards(
     q: str = Query(..., min_length=2),
     rarity: Optional[str] = Query(None), # e.g. "common,rare"
+    colors: Optional[str] = Query(None), # e.g. "W,U,B"
     location: Optional[str] = Query(None)
 ):
     sql_query = """
@@ -65,7 +66,8 @@ def search_cards(
     with engine.connect() as conn:
         result = conn.execute(text(sql_query), params).mappings().all()
 
-    return {"results": [dict(row) for row in result]}
+    results = [dict(row) for row in result]
+    return {"results": results}
 
 @app.get("/api/locations")
 def get_locations():
