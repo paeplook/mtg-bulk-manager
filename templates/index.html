@@ -88,13 +88,13 @@
                         <label class="block text-xs font-semibold text-gray-400 mb-2">Rareza</label>
                         <div class="flex flex-wrap gap-2 text-xs">
                             <button onclick="toggleRarity('common')" id="rarity-common"
-                                class="rarity-btn px-3 py-1.5 rounded-lg border border-gray-700 bg-gray-900 text-gray-300">Común</button>
+                                class="rarity-btn px-3 py-1.5 rounded-lg border border-gray-700 bg-gray-900 text-gray-300 transition">Común</button>
                             <button onclick="toggleRarity('uncommon')" id="rarity-uncommon"
-                                class="rarity-btn px-3 py-1.5 rounded-lg border border-gray-700 bg-gray-900 text-gray-300">Infrecuente</button>
+                                class="rarity-btn px-3 py-1.5 rounded-lg border border-gray-700 bg-gray-900 text-gray-300 transition">Infrecuente</button>
                             <button onclick="toggleRarity('rare')" id="rarity-rare"
-                                class="rarity-btn px-3 py-1.5 rounded-lg border border-gray-700 bg-gray-900 text-amber-400/80">Rara</button>
+                                class="rarity-btn px-3 py-1.5 rounded-lg border border-gray-700 bg-gray-900 text-amber-400/80 transition">Rara</button>
                             <button onclick="toggleRarity('mythic')" id="rarity-mythic"
-                                class="rarity-btn px-3 py-1.5 rounded-lg border border-gray-700 bg-gray-900 text-orange-400/80">Mítica</button>
+                                class="rarity-btn px-3 py-1.5 rounded-lg border border-gray-700 bg-gray-900 text-orange-400/80 transition">Mítica</button>
                         </div>
                     </div>
 
@@ -208,7 +208,7 @@
                 activeColors.push(color);
                 btn.classList.add('ring-2', 'ring-amber-400', 'scale-110');
             }
-            filterCurrentResults();
+            filterCurrentResults(); // Filtra directamente los resultados obtenidos
         }
 
         const searchInput = document.getElementById('search-input');
@@ -236,10 +236,40 @@
                 const res = await fetch(url);
                 const data = await res.json();
                 cardCache = data.results || [];
+
+                // Pedimos a Scryfall los colores reales de las cartas encontradas
+                await fetchCardColors();
                 filterCurrentResults();
             } catch (e) {
                 console.error("Error buscando cartas", e);
             }
+        }
+
+        // Consulta los colores exactos a la API de Scryfall
+        async function fetchCardColors() {
+            const uniqueIds = [...new Set(cardCache.map(c => c.scryfall_id))];
+
+            // Consultamos en paralelo los datos de Scryfall
+            const promises = uniqueIds.map(id =>
+                fetch(`https://api.scryfall.com/cards/${id}`)
+                    .then(r => r.json())
+                    .catch(() => null)
+            );
+
+            const scryfallData = await Promise.all(promises);
+            const colorMap = {};
+
+            scryfallData.forEach(card => {
+                if (card && card.id) {
+                    // Obtenemos los colores o la identidad de color (W, U, B, R, G)
+                    colorMap[card.id] = card.colors || card.color_identity || [];
+                }
+            });
+
+            // Asignamos los colores a cada carta en nuestra caché
+            cardCache.forEach(card => {
+                card.colors = colorMap[card.scryfall_id] || [];
+            });
         }
 
         function filterCurrentResults() {
@@ -252,11 +282,33 @@
                 return;
             }
 
+            // Filtrar según los colores seleccionados
+            let filteredCards = cardCache;
+            if (activeColors.length > 0) {
+                filteredCards = cardCache.filter(card => {
+                    const cardColors = card.colors || [];
+
+                    // Si seleccionó Incoloro 'C'
+                    if (activeColors.includes('C') && cardColors.length === 0) {
+                        return true;
+                    }
+
+                    // Comprobar si la carta tiene alguno de los colores seleccionados
+                    return activeColors.some(selectedColor => cardColors.includes(selectedColor));
+                });
+            }
+
+            if (filteredCards.length === 0) {
+                grid.innerHTML = '';
+                noResults.classList.remove('hidden');
+                return;
+            }
+
             noResults.classList.add('hidden');
 
-            // Grouping by Card Name
+            // Agrupar por nombre de carta
             const grouped = {};
-            cardCache.forEach(item => {
+            filteredCards.forEach(item => {
                 if (!grouped[item.name]) grouped[item.name] = [];
                 grouped[item.name].push(item);
             });
@@ -291,6 +343,34 @@
                 grid.innerHTML += cardHtml;
             });
         }
+
+        // Subida de Archivo CSV
+        document.getElementById('upload-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const statusDiv = document.getElementById('upload-status');
+            const formData = new FormData();
+
+            formData.append('file', document.getElementById('csv-file').files[0]);
+            formData.append('location', document.getElementById('location-input').value);
+            formData.append('is_deck', document.getElementById('is-deck-checkbox').checked);
+
+            statusDiv.classList.remove('hidden');
+            statusDiv.innerHTML = '<span class="text-amber-400">Subiendo e importando registros...</span>';
+
+            try {
+                const res = await fetch('/api/upload', { method: 'POST', body: formData });
+                const result = await res.json();
+
+                if (res.ok) {
+                    statusDiv.innerHTML = `<span class="text-emerald-400">✅ ${result.message}</span>`;
+                    loadStats();
+                } else {
+                    statusDiv.innerHTML = `<span class="text-rose-400">❌ Error: ${result.message}</span>`;
+                }
+            } catch (err) {
+                statusDiv.innerHTML = `<span class="text-rose-400">❌ Error al subir archivo.</span>`;
+            }
+        });
 
         async function loadStats() {
             try {
