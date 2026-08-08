@@ -1,11 +1,14 @@
 import os
+import asyncio
+import requests
 from io import BytesIO
 from typing import Optional, List
 import pandas as pd
-from fastapi import FastAPI, Query, Request, UploadFile, File, Form
+from fastapi import FastAPI, Query, Request, UploadFile, File, Form, BackgroundTasks
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse, JSONResponse
 from sqlalchemy import create_engine, text
+from apscheduler.schedulers.background import BackgroundScheduler
 
 from init_db import init_db, get_database_url, CardInventory
 
@@ -15,21 +18,76 @@ templates = Jinja2Templates(directory="templates")
 database_url = get_database_url()
 engine = create_engine(database_url)
 
+# Funcionalidad: Actualizador de Precios de Cardmarket
+def update_cardmarket_prices():
+    """Consulta Scryfall/Cardmarket para actualizar los precios en Euros de la BD."""
+    print("🔄 [CRON MONDAY] Iniciando actualización semanal de precios de Cardmarket...")
+    try:
+        with engine.connect() as conn:
+            # Obtenemos los Scryfall IDs únicos presentes en el inventario
+            query = text("SELECT DISTINCT scryfall_id FROM cards_inventory WHERE scryfall_id IS NOT NULL")
+            unique_ids = conn.execute(query).scalars().all()
+
+        updated_count = 0
+        for scryfall_id in unique_ids:
+            try:
+                # Consulta a Scryfall (Precios Cardmarket EUR)
+                res = requests.get(f"https://api.scryfall.com/cards/{scryfall_id}", timeout=5)
+                if res.status_code == 200:
+                    data = res.json()
+                    prices = data.get("prices", {})
+                    # Prioriza precio normal en EUR, o foil si no hay normal
+                    cmarket_price = prices.get("eur") or prices.get("eur_foil")
+
+                    if cmarket_price:
+                        cmarket_price = float(cmarket_price)
+                        with engine.begin() as conn:
+                            conn.execute(
+                                text("UPDATE cards_inventory SET purchase_price = :price WHERE scryfall_id = :id"),
+                                {"price": cmarket_price, "id": scryfall_id}
+                            )
+                        updated_count += 1
+                
+                # Respetamos el rate limit de Scryfall (100ms entre peticiones)
+                asyncio.run(asyncio.sleep(0.1))
+            except Exception as e:
+                continue
+
+        print(f"✅ [CRON MONDAY] Precios de Cardmarket actualizados con éxito en {updated_count} cartas.")
+    except Exception as e:
+        print(f"❌ Error durante la actualización de precios: {e}")
+
+# Scheduler: Se ejecuta todos los LUNES a las 00:00 (day_of_week='mon', hour=0, minute=0)
+scheduler = BackgroundScheduler()
+scheduler.add_job(update_cardmarket_prices, 'cron', day_of_week='mon', hour=0, minute=0)
+
 @app.on_event("startup")
 def startup_event():
     init_db()
+    scheduler.start()
+
+@app.on_event("shutdown")
+def shutdown_event():
+    scheduler.shutdown()
 
 @app.get("/", response_class=HTMLResponse)
 def home(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
-# API de búsqueda mejorada con Filtros de Rareza y Color
+# API para forzar la actualización manual de precios si no quieres esperar al lunes
+@app.post("/api/update-prices")
+def force_price_update(background_tasks: BackgroundTasks):
+    background_tasks.add_task(update_cardmarket_prices)
+    return {"status": "success", "message": "Actualización de precios de Cardmarket iniciada en segundo plano."}
+
+# API de Búsqueda
 @app.get("/api/search")
 def search_cards(
-    q: str = Query(..., min_length=2),
-    rarity: Optional[str] = Query(None), # e.g. "common,rare"
-    colors: Optional[str] = Query(None), # e.g. "W,U,B"
-    location: Optional[str] = Query(None)
+    q: Optional[str] = Query(""),
+    rarity: Optional[str] = Query(None),
+    location: Optional[str] = Query(None),
+    sort_by: Optional[str] = Query("name_asc"),
+    limit: int = Query(120)
 ):
     sql_query = """
         SELECT 
@@ -40,28 +98,40 @@ def search_cards(
             scryfall_id,
             location,
             is_deck,
+            MAX(purchase_price) as purchase_price,
             SUM(quantity) as total_quantity
         FROM cards_inventory
-        WHERE LOWER(name) LIKE LOWER(:search_term)
+        WHERE 1=1
     """
-    params = {"search_term": f"%{q}%"}
+    params = {}
 
-    # Filtro por Rareza
+    if q and q.strip():
+        sql_query += " AND LOWER(name) LIKE LOWER(:search_term)"
+        params["search_term"] = f"%{q.strip()}%"
+
     if rarity:
         rarities = [r.strip().lower() for r in rarity.split(",") if r.strip()]
         if rarities:
             sql_query += " AND LOWER(rarity) IN :rarities"
             params["rarities"] = tuple(rarities)
 
-    # Filtro por Ubicación
     if location and location != "all":
         sql_query += " AND location = :location"
         params["location"] = location
 
-    sql_query += """
-        GROUP BY name, set_code, set_name, rarity, scryfall_id, location, is_deck
-        ORDER BY name ASC
-    """
+    sql_query += " GROUP BY name, set_code, set_name, rarity, scryfall_id, location, is_deck "
+
+    if sort_by == "name_desc":
+        sql_query += " ORDER BY name DESC "
+    elif sort_by == "price_desc":
+        sql_query += " ORDER BY MAX(purchase_price) DESC NULLS LAST, name ASC "
+    elif sort_by == "price_asc":
+        sql_query += " ORDER BY MAX(purchase_price) ASC NULLS LAST, name ASC "
+    else:
+        sql_query += " ORDER BY name ASC "
+
+    sql_query += " LIMIT :limit "
+    params["limit"] = limit
 
     with engine.connect() as conn:
         result = conn.execute(text(sql_query), params).mappings().all()
