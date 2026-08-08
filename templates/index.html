@@ -20,12 +20,7 @@
                     colors: {
                         mtgDark: '#0f0f12',
                         mtgCard: '#18181c',
-                        mtgHeader: '#121216',
-                        wMana: '#f8f6d8',
-                        uMana: '#c1d7e9',
-                        bMana: '#bab1ab',
-                        rMana: '#e49977',
-                        gMana: '#a3c095'
+                        mtgHeader: '#121216'
                     }
                 }
             }
@@ -104,7 +99,7 @@
                         </div>
                     </div>
 
-                    <!-- Filtro por Colores (Símbolos Oficiales) + Botón Commander Identity -->
+                    <!-- Filtro por Colores (Logos limpios) + Botón Commander Identity -->
                     <div>
                         <div class="flex justify-between items-center mb-2">
                             <label class="block text-xs font-semibold text-gray-400">Colores</label>
@@ -117,31 +112,31 @@
                             </button>
                         </div>
 
-                        <!-- Botones de Colores con Símbolos Oficiales -->
-                        <div class="flex gap-2 text-lg">
-                            <button onclick="toggleColor('W')" id="color-W"
-                                class="color-btn w-9 h-9 rounded-full border border-gray-700 bg-gray-900 hover:bg-gray-800 flex items-center justify-center transition">
-                                <i class="ms ms-w ms-cost text-[#fffbd5]"></i>
+                        <!-- Botones de Colores Oficiales sin fondos raros -->
+                        <div class="flex gap-2 text-xl">
+                            <button onclick="toggleColor('W')" id="color-W" title="Blanco"
+                                class="color-btn p-1 rounded-full border border-transparent hover:scale-110 transition opacity-60 hover:opacity-100">
+                                <i class="ms ms-w ms-cost shadow-md rounded-full"></i>
                             </button>
-                            <button onclick="toggleColor('U')" id="color-U"
-                                class="color-btn w-9 h-9 rounded-full border border-gray-700 bg-gray-900 hover:bg-gray-800 flex items-center justify-center transition">
-                                <i class="ms ms-u ms-cost text-[#aae0fa]"></i>
+                            <button onclick="toggleColor('U')" id="color-U" title="Azul"
+                                class="color-btn p-1 rounded-full border border-transparent hover:scale-110 transition opacity-60 hover:opacity-100">
+                                <i class="ms ms-u ms-cost shadow-md rounded-full"></i>
                             </button>
-                            <button onclick="toggleColor('B')" id="color-B"
-                                class="color-btn w-9 h-9 rounded-full border border-gray-700 bg-gray-900 hover:bg-gray-800 flex items-center justify-center transition">
-                                <i class="ms ms-b ms-cost text-[#cbd2d5]"></i>
+                            <button onclick="toggleColor('B')" id="color-B" title="Negro"
+                                class="color-btn p-1 rounded-full border border-transparent hover:scale-110 transition opacity-60 hover:opacity-100">
+                                <i class="ms ms-b ms-cost shadow-md rounded-full"></i>
                             </button>
-                            <button onclick="toggleColor('R')" id="color-R"
-                                class="color-btn w-9 h-9 rounded-full border border-gray-700 bg-gray-900 hover:bg-gray-800 flex items-center justify-center transition">
-                                <i class="ms ms-r ms-cost text-[#f9aa8f]"></i>
+                            <button onclick="toggleColor('R')" id="color-R" title="Rojo"
+                                class="color-btn p-1 rounded-full border border-transparent hover:scale-110 transition opacity-60 hover:opacity-100">
+                                <i class="ms ms-r ms-cost shadow-md rounded-full"></i>
                             </button>
-                            <button onclick="toggleColor('G')" id="color-G"
-                                class="color-btn w-9 h-9 rounded-full border border-gray-700 bg-gray-900 hover:bg-gray-800 flex items-center justify-center transition">
-                                <i class="ms ms-g ms-cost text-[#9bd3ae]"></i>
+                            <button onclick="toggleColor('G')" id="color-G" title="Verde"
+                                class="color-btn p-1 rounded-full border border-transparent hover:scale-110 transition opacity-60 hover:opacity-100">
+                                <i class="ms ms-g ms-cost shadow-md rounded-full"></i>
                             </button>
-                            <button onclick="toggleColor('C')" id="color-C"
-                                class="color-btn w-9 h-9 rounded-full border border-gray-700 bg-gray-900 hover:bg-gray-800 flex items-center justify-center transition">
-                                <i class="ms ms-c ms-cost text-[#ccc2c0]"></i>
+                            <button onclick="toggleColor('C')" id="color-C" title="Incoloro"
+                                class="color-btn p-1 rounded-full border border-transparent hover:scale-110 transition opacity-60 hover:opacity-100">
+                                <i class="ms ms-c ms-cost shadow-md rounded-full"></i>
                             </button>
                         </div>
                     </div>
@@ -249,15 +244,17 @@
             triggerSearch();
         }
 
-        // Toggle Color
+        // Toggle Color con estilo activo
         function toggleColor(color) {
             const btn = document.getElementById(`color-${color}`);
             if (activeColors.includes(color)) {
                 activeColors = activeColors.filter(c => c !== color);
-                btn.classList.remove('ring-2', 'ring-amber-400', 'scale-110');
+                btn.classList.remove('border-amber-400', 'ring-2', 'ring-amber-400/50', 'opacity-100', 'scale-110');
+                btn.classList.add('border-transparent', 'opacity-60');
             } else {
                 activeColors.push(color);
-                btn.classList.add('ring-2', 'ring-amber-400', 'scale-110');
+                btn.classList.add('border-amber-400', 'ring-2', 'ring-amber-400/50', 'opacity-100', 'scale-110');
+                btn.classList.remove('border-transparent', 'opacity-60');
             }
             filterCurrentResults();
         }
@@ -333,18 +330,28 @@
             if (activeColors.length > 0) {
                 filteredCards = cardCache.filter(card => {
                     const cardColors = card.colors || [];
+                    const isColorlessCard = (cardColors.length === 0);
 
-                    if (activeColors.includes('C') && cardColors.length === 0) {
-                        return true;
-                    }
-
-                    if (cardColors.length === 0) return false;
-
+                    // MODO 1: Commander Identity (Estricto)
                     if (isCommanderMode) {
+                        if (isColorlessCard) {
+                            // Si la carta es incolora, solo pasa si 'C' está seleccionado
+                            return activeColors.includes('C');
+                        }
+                        // Para cartas con color, CADA UNO de sus colores debe estar en la selección activa
                         return cardColors.every(cardColor => activeColors.includes(cardColor));
                     }
 
-                    return activeColors.some(selectedColor => cardColors.includes(selectedColor));
+                    // MODO 2: Inclusivo / Normal
+                    if (isColorlessCard) {
+                        return activeColors.includes('C');
+                    }
+
+                    // Muestra la carta si coincide con ALGUN de los colores seleccionados (salvo 'C')
+                    const coloredSelections = activeColors.filter(c => c !== 'C');
+                    if (coloredSelections.length === 0) return false;
+
+                    return coloredSelections.some(selectedColor => cardColors.includes(selectedColor));
                 });
             }
 
