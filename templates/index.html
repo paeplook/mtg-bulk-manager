@@ -5,7 +5,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MTG Collection Manager</title>
+
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Mana CSS (Símbolos Oficiales de MTG) -->
+    <link href="https://cdn.jsdelivr.net/npm/mana-font@1.4.1/css/mana.min.css" rel="stylesheet" type="text/css" />
+
     <script>
         tailwind.config = {
             darkMode: 'class',
@@ -98,22 +104,45 @@
                         </div>
                     </div>
 
-                    <!-- Filtro por Colores (WUBRG) -->
+                    <!-- Filtro por Colores (Símbolos Oficiales) + Botón Commander Identity -->
                     <div>
-                        <label class="block text-xs font-semibold text-gray-400 mb-2">Colores</label>
-                        <div class="flex gap-2">
+                        <div class="flex justify-between items-center mb-2">
+                            <label class="block text-xs font-semibold text-gray-400">Colores</label>
+
+                            <!-- Botón Modo Commander Identity -->
+                            <button onclick="toggleCommanderMode()" id="commander-toggle"
+                                class="text-xs px-2.5 py-1 rounded-lg border border-gray-700 bg-gray-900 text-gray-400 hover:text-white transition flex items-center gap-1.5">
+                                <span id="commander-dot" class="w-2 h-2 rounded-full bg-gray-600"></span>
+                                Commander Identity
+                            </button>
+                        </div>
+
+                        <!-- Botones de Colores con Símbolos Oficiales -->
+                        <div class="flex gap-2 text-lg">
                             <button onclick="toggleColor('W')" id="color-W"
-                                class="color-btn w-8 h-8 rounded-full border border-gray-700 bg-gray-800 text-wMana font-bold text-xs flex items-center justify-center transition">☀️</button>
+                                class="color-btn w-9 h-9 rounded-full border border-gray-700 bg-gray-900 hover:bg-gray-800 flex items-center justify-center transition">
+                                <i class="ms ms-w ms-cost text-[#fffbd5]"></i>
+                            </button>
                             <button onclick="toggleColor('U')" id="color-U"
-                                class="color-btn w-8 h-8 rounded-full border border-gray-700 bg-gray-800 text-uMana font-bold text-xs flex items-center justify-center transition">💧</button>
+                                class="color-btn w-9 h-9 rounded-full border border-gray-700 bg-gray-900 hover:bg-gray-800 flex items-center justify-center transition">
+                                <i class="ms ms-u ms-cost text-[#aae0fa]"></i>
+                            </button>
                             <button onclick="toggleColor('B')" id="color-B"
-                                class="color-btn w-8 h-8 rounded-full border border-gray-700 bg-gray-800 text-bMana font-bold text-xs flex items-center justify-center transition">💀</button>
+                                class="color-btn w-9 h-9 rounded-full border border-gray-700 bg-gray-900 hover:bg-gray-800 flex items-center justify-center transition">
+                                <i class="ms ms-b ms-cost text-[#cbd2d5]"></i>
+                            </button>
                             <button onclick="toggleColor('R')" id="color-R"
-                                class="color-btn w-8 h-8 rounded-full border border-gray-700 bg-gray-800 text-rMana font-bold text-xs flex items-center justify-center transition">🔥</button>
+                                class="color-btn w-9 h-9 rounded-full border border-gray-700 bg-gray-900 hover:bg-gray-800 flex items-center justify-center transition">
+                                <i class="ms ms-r ms-cost text-[#f9aa8f]"></i>
+                            </button>
                             <button onclick="toggleColor('G')" id="color-G"
-                                class="color-btn w-8 h-8 rounded-full border border-gray-700 bg-gray-800 text-gMana font-bold text-xs flex items-center justify-center transition">🌲</button>
+                                class="color-btn w-9 h-9 rounded-full border border-gray-700 bg-gray-900 hover:bg-gray-800 flex items-center justify-center transition">
+                                <i class="ms ms-g ms-cost text-[#9bd3ae]"></i>
+                            </button>
                             <button onclick="toggleColor('C')" id="color-C"
-                                class="color-btn w-8 h-8 rounded-full border border-gray-700 bg-gray-800 text-gray-400 font-bold text-xs flex items-center justify-center transition">💎</button>
+                                class="color-btn w-9 h-9 rounded-full border border-gray-700 bg-gray-900 hover:bg-gray-800 flex items-center justify-center transition">
+                                <i class="ms ms-c ms-cost text-[#ccc2c0]"></i>
+                            </button>
                         </div>
                     </div>
 
@@ -168,6 +197,7 @@
     <script>
         let activeRarities = [];
         let activeColors = [];
+        let isCommanderMode = false;
         let cardCache = [];
 
         // Cambio de Pestañas
@@ -181,6 +211,27 @@
             document.getElementById(tabId).classList.remove('hidden');
             document.getElementById(`nav-${tabId}`).classList.add('text-amber-400', 'bg-mtgCard');
             document.getElementById(`nav-${tabId}`).classList.remove('text-gray-400');
+        }
+
+        // Toggle Modo Commander Identity
+        function toggleCommanderMode() {
+            isCommanderMode = !isCommanderMode;
+            const btn = document.getElementById('commander-toggle');
+            const dot = document.getElementById('commander-dot');
+
+            if (isCommanderMode) {
+                btn.classList.add('border-amber-500', 'bg-amber-500/10', 'text-amber-400');
+                btn.classList.remove('border-gray-700', 'bg-gray-900', 'text-gray-400');
+                dot.classList.add('bg-amber-400');
+                dot.classList.remove('bg-gray-600');
+            } else {
+                btn.classList.remove('border-amber-500', 'bg-amber-500/10', 'text-amber-400');
+                btn.classList.add('border-gray-700', 'bg-gray-900', 'text-gray-400');
+                dot.classList.remove('bg-amber-400');
+                dot.classList.add('bg-gray-600');
+            }
+
+            filterCurrentResults();
         }
 
         // Toggle Rareza
@@ -208,7 +259,7 @@
                 activeColors.push(color);
                 btn.classList.add('ring-2', 'ring-amber-400', 'scale-110');
             }
-            filterCurrentResults(); // Filtra directamente los resultados obtenidos
+            filterCurrentResults();
         }
 
         const searchInput = document.getElementById('search-input');
@@ -237,7 +288,6 @@
                 const data = await res.json();
                 cardCache = data.results || [];
 
-                // Pedimos a Scryfall los colores reales de las cartas encontradas
                 await fetchCardColors();
                 filterCurrentResults();
             } catch (e) {
@@ -245,11 +295,9 @@
             }
         }
 
-        // Consulta los colores exactos a la API de Scryfall
         async function fetchCardColors() {
             const uniqueIds = [...new Set(cardCache.map(c => c.scryfall_id))];
 
-            // Consultamos en paralelo los datos de Scryfall
             const promises = uniqueIds.map(id =>
                 fetch(`https://api.scryfall.com/cards/${id}`)
                     .then(r => r.json())
@@ -261,12 +309,10 @@
 
             scryfallData.forEach(card => {
                 if (card && card.id) {
-                    // Obtenemos los colores o la identidad de color (W, U, B, R, G)
-                    colorMap[card.id] = card.colors || card.color_identity || [];
+                    colorMap[card.id] = card.color_identity || card.colors || [];
                 }
             });
 
-            // Asignamos los colores a cada carta en nuestra caché
             cardCache.forEach(card => {
                 card.colors = colorMap[card.scryfall_id] || [];
             });
@@ -282,18 +328,22 @@
                 return;
             }
 
-            // Filtrar según los colores seleccionados
             let filteredCards = cardCache;
+
             if (activeColors.length > 0) {
                 filteredCards = cardCache.filter(card => {
                     const cardColors = card.colors || [];
 
-                    // Si seleccionó Incoloro 'C'
                     if (activeColors.includes('C') && cardColors.length === 0) {
                         return true;
                     }
 
-                    // Comprobar si la carta tiene alguno de los colores seleccionados
+                    if (cardColors.length === 0) return false;
+
+                    if (isCommanderMode) {
+                        return cardColors.every(cardColor => activeColors.includes(cardColor));
+                    }
+
                     return activeColors.some(selectedColor => cardColors.includes(selectedColor));
                 });
             }
@@ -306,7 +356,6 @@
 
             noResults.classList.add('hidden');
 
-            // Agrupar por nombre de carta
             const grouped = {};
             filteredCards.forEach(item => {
                 if (!grouped[item.name]) grouped[item.name] = [];
