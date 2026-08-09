@@ -190,51 +190,51 @@
 
     </main>
 
-    <!-- MODAL REDISEÑADO CON ARTWORK DE FONDO Y BADGES DE MANÁ -->
+    <!-- MODAL REDISEÑADO CON ESPACIO SEGURO PARA BOTÓN 'X' -->
     <div id="card-modal" class="modal-backdrop hidden">
         <div class="modal-content flex flex-col md:flex-row relative">
 
-            <!-- Art de fondo borroso -->
             <div id="modal-bg-blur" class="modal-bg-blur"></div>
 
+            <!-- Botón 'X' Posicionado sin tapar los símbolos -->
             <button onclick="closeCardModal()"
-                class="absolute top-3 right-3 text-gray-300 hover:text-white bg-black/60 backdrop-blur-md p-2 rounded-full z-20 border border-white/10 transition">
+                class="absolute top-3 right-3 text-gray-300 hover:text-white bg-black/80 backdrop-blur-md p-2 rounded-full z-30 border border-white/20 transition hover:scale-110">
                 ✕
             </button>
 
-            <!-- Lado Izquierdo: Imagen Destacada -->
+            <!-- Lado Izquierdo: Imagen -->
             <div class="p-6 md:w-1/2 flex items-center justify-center bg-black/40 modal-body-wrapper">
                 <img id="modal-card-img" src=""
                     class="w-full max-w-[280px] rounded-xl shadow-2xl object-cover aspect-[5/7] transform hover:scale-105 transition duration-300">
             </div>
 
-            <!-- Lado Derecho: Ficha Técnica Premium -->
+            <!-- Lado Derecho: Ficha Técnica -->
             <div
                 class="p-6 md:w-1/2 flex flex-col justify-between overflow-y-auto custom-scrollbar space-y-4 modal-body-wrapper">
                 <div>
-                    <!-- Nombre y Coste de Maná Oficial -->
-                    <div class="flex items-start justify-between gap-2 mb-1">
+                    <!-- Nombre y Coste de Maná con pr-10 para evitar la 'X' -->
+                    <div class="flex items-start justify-between gap-2 mb-1 pr-10">
                         <div>
                             <h2 id="modal-card-title" class="text-2xl font-black text-white tracking-tight"></h2>
                             <p id="modal-card-translated-name" class="text-sm text-amber-400 font-medium italic"></p>
                         </div>
-                        <div id="modal-mana-cost" class="flex gap-1 text-lg"></div>
+                        <div id="modal-mana-cost" class="flex gap-1 text-lg flex-shrink-0"></div>
                     </div>
 
-                    <!-- Badges: Tipo de Carta y Rareza -->
+                    <!-- Badges -->
                     <div class="flex flex-wrap items-center gap-2 my-3">
                         <span id="modal-card-type" class="badge-pill text-gray-300"></span>
                         <span id="modal-card-rarity" class="badge-pill"></span>
                     </div>
 
-                    <!-- Edición y Set Code -->
+                    <!-- Edición -->
                     <div
                         class="flex items-center gap-2 text-xs text-gray-300 mb-4 bg-black/40 p-2.5 rounded-xl border border-white/10 backdrop-blur-md">
                         <i id="modal-set-icon" class="ms text-lg"></i>
                         <span id="modal-set-info" class="font-medium"></span>
                     </div>
 
-                    <!-- Caja de Texto de Reglas con Símbolos Automáticos -->
+                    <!-- Texto de Reglas -->
                     <div class="space-y-1.5">
                         <h4 class="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Efecto / Texto Oficial
                         </h4>
@@ -244,7 +244,7 @@
                     </div>
                 </div>
 
-                <!-- Widget de Precio Cardmarket y Ubicaciones -->
+                <!-- Precio Cardmarket y Ubicaciones -->
                 <div class="space-y-3 pt-3 border-t border-white/10">
                     <div class="price-widget">
                         <div>
@@ -361,12 +361,50 @@
             return `https://cards.scryfall.io/normal/front/${a}/${b}/${id}.jpg`;
         }
 
-        // Convierte símbolos del tipo {2}, {T}, {W} en iconos de Mana.css
         function formatManaAndText(text) {
             if (!text) return '';
             return text.replace(/\{([^}]+)\}/g, (match, symbol) => {
                 const cleanSym = symbol.toLowerCase().replace('/', '');
                 return `<i class="ms ms-${cleanSym} ms-cost ms-shadow"></i>`;
+            });
+        }
+
+        // Obtiene colores e identidades en LOTE (Batch) sin bloqueos de red
+        async function fetchBatchColors() {
+            const uniqueIds = [...new Set(cardCache.map(c => c.scryfall_id))].filter(Boolean);
+            if (uniqueIds.length === 0) return;
+
+            const chunks = [];
+            for (let i = 0; i < uniqueIds.length; i += 75) {
+                chunks.push(uniqueIds.slice(i, i + 75));
+            }
+
+            const colorMap = {};
+
+            for (const chunk of chunks) {
+                try {
+                    const identifiers = chunk.map(id => ({ id }));
+                    const res = await fetch('https://api.scryfall.com/cards/collection', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ identifiers })
+                    });
+
+                    if (res.ok) {
+                        const data = await res.json();
+                        (data.data || []).forEach(card => {
+                            if (card && card.id) {
+                                colorMap[card.id] = card.color_identity || card.colors || [];
+                            }
+                        });
+                    }
+                } catch (e) {
+                    console.error("Error fetching batch colors", e);
+                }
+            }
+
+            cardCache.forEach(card => {
+                card.colors = colorMap[card.scryfall_id] || [];
             });
         }
 
@@ -386,6 +424,10 @@
                 const res = await fetch(url);
                 const data = await res.json();
                 cardCache = data.results || [];
+
+                // Carga rápida en lote para que los filtros de color funcionen al 100%
+                await fetchBatchColors();
+
                 filterCurrentResults();
             } catch (e) {
                 console.error("Error buscando cartas", e);
@@ -449,19 +491,29 @@
                 const totalQty = locations.reduce((acc, l) => acc + (l.total_quantity || 1), 0);
                 const collectorNum = card.collector_number ? `#${card.collector_number}` : '';
 
+                // Tarjeta limpia con 3 columnas en el pie: [ Cantidad ] [ Edición ] [ Precio ]
                 const cardHtml = `
                     <div onclick="openCardModal('${card.scryfall_id}', '${encodeURIComponent(JSON.stringify(locations))}')" 
                         class="mtg-card-item group">
                         
                         <div class="mtg-card-img-wrapper">
                             <img src="${imageUrl}" alt="${cardName}" loading="lazy" class="mtg-card-img" onerror="this.onerror=null; this.src='https://cards.scryfall.io/back.png';">
-                            <span class="card-badge-qty">${totalQty}</span>
-                            <span class="card-badge-price">${priceFormatted}</span>
                         </div>
 
-                        <div class="card-footer-info group-hover:text-amber-400 transition">
-                            <i class="ms ms-${card.set_code.toLowerCase()} ms-shadow"></i>
-                            <span class="font-bold tracking-wider">${card.set_code.toUpperCase()} ${collectorNum}</span>
+                        <!-- Pie de la tarjeta: Cantidad | Edición | Precio -->
+                        <div class="py-1 px-1 flex items-center justify-between text-[11px] text-gray-400 border-t border-white/5 mt-1 pt-1">
+                            <span class="bg-gray-900/90 text-white font-bold text-[10px] px-1.5 py-0.5 rounded border border-white/10">
+                                ${totalQty}x
+                            </span>
+
+                            <span class="flex items-center gap-1 font-bold tracking-wider text-gray-300 group-hover:text-amber-400 transition">
+                                <i class="ms ms-${card.set_code.toLowerCase()} ms-shadow"></i>
+                                ${card.set_code.toUpperCase()} ${collectorNum}
+                            </span>
+
+                            <span class="bg-gray-900/90 text-amber-400 font-bold text-[10px] px-1.5 py-0.5 rounded border border-amber-500/20">
+                                ${priceFormatted}
+                            </span>
                         </div>
                     </div>
                 `;
@@ -482,14 +534,12 @@
             document.getElementById('modal-set-icon').className = `ms ms-${card.set_code.toLowerCase()} text-[18px]`;
             document.getElementById('modal-card-price').textContent = card.purchase_price ? `${card.purchase_price} €` : 'N/A';
 
-            // Badge de Rareza
             const rarityElem = document.getElementById('modal-card-rarity');
             const r = (card.rarity || 'common').toLowerCase();
             const rarityNames = { common: 'Común', uncommon: 'Infrecuente', rare: 'Rara', mythic: 'Mítica' };
             rarityElem.className = `badge-pill badge-${r}`;
             rarityElem.textContent = rarityNames[r] || 'Común';
 
-            // Ubicaciones
             const locContainer = document.getElementById('modal-card-locations');
             locContainer.innerHTML = locations.map(l => `
                 <div class="flex justify-between items-center py-1.5 px-3 rounded-xl ${l.is_deck ? 'bg-amber-500/10 text-amber-300 border-amber-500/20' : 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20'} border backdrop-blur-md">
@@ -508,15 +558,12 @@
             textContainer.innerHTML = '<span class="text-amber-400 animate-pulse">Obteniendo texto oficial en español...</span>';
 
             try {
-                // Petición de datos completos de la carta
                 const resEn = await fetch(`https://api.scryfall.com/cards/${scryfallId}`);
                 const dataEn = await resEn.json();
 
-                // Tipo y Coste de Maná
                 typeElem.textContent = dataEn.type_line || 'Carta de Magic';
                 manaElem.innerHTML = formatManaAndText(dataEn.mana_cost || '');
 
-                // Buscar traducción en español
                 const searchRes = await fetch(`https://api.scryfall.com/cards/search?q=!"${encodeURIComponent(card.name)}"+lang:es`);
                 if (searchRes.ok) {
                     const searchData = await searchRes.json();
