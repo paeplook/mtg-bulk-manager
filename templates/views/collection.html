@@ -1,21 +1,15 @@
-<!-- CONTROLES Y BÚSQUEDA -->
+<!-- BARRA DE BÚSQUEDA Y CONTROLES -->
 <div class="panel-card p-2.5 space-y-3">
     <div class="flex flex-col md:flex-row gap-2.5 items-center">
-        <!-- Buscador -->
         <div class="relative flex-1 w-full">
             <i data-lucide="search" class="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500"></i>
             <input type="text" id="search-input" placeholder="Buscar carta por nombre..."
                 class="w-full pl-10 pr-4 py-2 bg-zinc-900/90 border border-zinc-800 rounded-xl text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-amber-500/60 transition">
         </div>
-
-        <!-- Botón Filtros -->
-        <button onclick="toggleFiltersDrawer()" id="btn-filters-toggle"
+        <button onclick="toggleFiltersDrawer()"
             class="w-full md:w-auto px-3.5 py-2 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 rounded-xl text-xs text-zinc-300 font-medium transition flex items-center justify-center gap-2">
-            <i data-lucide="sliders-horizontal" class="w-3.5 h-3.5 text-zinc-400"></i>
-            <span>Filtros</span>
+            <i data-lucide="sliders-horizontal" class="w-3.5 h-3.5 text-zinc-400"></i> Filtros
         </button>
-
-        <!-- Ordenar -->
         <div class="relative w-full md:w-[190px]">
             <select id="sort-select" onchange="triggerSearch()"
                 class="w-full px-3.5 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-xs text-amber-400 font-medium focus:outline-none focus:border-amber-500/60 cursor-pointer appearance-none">
@@ -29,7 +23,7 @@
         </div>
     </div>
 
-    <!-- Cajón de Filtros -->
+    <!-- CAJÓN DE FILTROS -->
     <div id="filters-drawer"
         class="hidden border-t border-zinc-800/80 pt-3 grid grid-cols-1 md:grid-cols-2 gap-4 transition-all">
         <div>
@@ -78,16 +72,15 @@
 </div>
 
 <div id="loading-spinner" class="hidden text-center py-8 text-amber-400 text-sm flex items-center justify-center gap-2">
-    <i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i>
-    <span>Cargando colección...</span>
+    <i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Cargando colección...
 </div>
 
-<!-- RESULTADOS -->
+<!-- PARRILLA DE RESULTADOS -->
 <div id="results-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 mt-4"></div>
 <div id="no-results" class="text-center py-12 text-zinc-500 hidden text-sm">No hay cartas que coincidan con la búsqueda.
 </div>
 
-<!-- MODAL CARTA (VENTANA FLOTANTE) -->
+<!-- VENTANA FLOTANTE (POP-UP) DE CARTA -->
 <div id="card-modal" class="modal-backdrop hidden">
     <div class="modal-content flex flex-col md:flex-row relative">
         <div id="modal-bg-blur" class="modal-bg-blur"></div>
@@ -98,7 +91,7 @@
 
         <div class="p-6 md:w-1/2 flex items-center justify-center bg-black/40 modal-body-wrapper">
             <img id="modal-card-img" src=""
-                class="w-full max-w-[280px] rounded-xl shadow-2xl object-cover aspect-[5/7] transform hover:scale-105 transition duration-300">
+                class="w-full max-w-[280px] rounded-xl shadow-2xl object-cover aspect-[5/7] transform hover:scale-105 transition">
         </div>
 
         <div
@@ -142,267 +135,3 @@
         </div>
     </div>
 </div>
-
-<!-- LÓGICA DE COLECCIÓN -->
-<script>
-    let activeRarities = [];
-    let activeColors = [];
-    let isCommanderMode = false;
-    let cardCache = [];
-    window.cardStore = {};
-
-    function toggleFiltersDrawer() { document.getElementById('filters-drawer').classList.toggle('hidden'); }
-
-    function toggleCommanderMode() {
-        isCommanderMode = !isCommanderMode;
-        const btn = document.getElementById('commander-toggle');
-        const dot = document.getElementById('commander-dot');
-        if (isCommanderMode) {
-            btn.classList.add('border-amber-500', 'bg-amber-500/10', 'text-amber-400');
-            dot.classList.add('bg-amber-400');
-        } else {
-            btn.classList.remove('border-amber-500', 'bg-amber-500/10', 'text-amber-400');
-            dot.classList.remove('bg-amber-400');
-        }
-        filterCurrentResults();
-    }
-
-    function toggleRarity(rarity) {
-        const btn = document.getElementById(`rarity-${rarity}`);
-        if (activeRarities.includes(rarity)) {
-            activeRarities = activeRarities.filter(r => r !== rarity);
-            btn.classList.remove('bg-amber-500/20', 'border-amber-500');
-        } else {
-            activeRarities.push(rarity);
-            btn.classList.add('bg-amber-500/20', 'border-amber-500');
-        }
-        triggerSearch();
-    }
-
-    function toggleColor(color) {
-        const btn = document.getElementById(`color-${color}`);
-        if (activeColors.includes(color)) {
-            activeColors = activeColors.filter(c => c !== color);
-            btn.classList.remove('border-amber-400', 'ring-2', 'ring-amber-400/50', 'opacity-100');
-            btn.classList.add('border-transparent', 'opacity-60');
-        } else {
-            activeColors.push(color);
-            btn.classList.add('border-amber-400', 'ring-2', 'ring-amber-400/50', 'opacity-100');
-            btn.classList.remove('border-transparent', 'opacity-60');
-        }
-        filterCurrentResults();
-    }
-
-    const searchInput = document.getElementById('search-input');
-    let debounceTimer;
-    if (searchInput) {
-        searchInput.addEventListener('input', () => {
-            clearTimeout(debounceTimer);
-            debounceTimer = setTimeout(triggerSearch, 300);
-        });
-    }
-
-    function getScryfallImageUrl(id) {
-        if (!id || id.length < 2) return 'https://cards.scryfall.io/back.png';
-        return `https://cards.scryfall.io/normal/front/${id.charAt(0)}/${id.charAt(1)}/${id}.jpg`;
-    }
-
-    function formatManaAndText(text) {
-        if (!text) return '';
-        return text.replace(/\{([^}]+)\}/g, (match, symbol) => {
-            const cleanSym = symbol.toLowerCase().replace('/', '');
-            return `<i class="ms ms-${cleanSym} ms-cost ms-shadow"></i>`;
-        });
-    }
-
-    async function fetchBatchColors() {
-        const uniqueIds = [...new Set(cardCache.map(c => c.scryfall_id))].filter(Boolean);
-        if (uniqueIds.length === 0) return;
-        const chunks = [];
-        for (let i = 0; i < uniqueIds.length; i += 75) chunks.push(uniqueIds.slice(i, i + 75));
-        const colorMap = {};
-        for (const chunk of chunks) {
-            try {
-                const res = await fetch('https://api.scryfall.com/cards/collection', {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ identifiers: chunk.map(id => ({ id })) })
-                });
-                if (res.ok) {
-                    const data = await res.json();
-                    (data.data || []).forEach(card => {
-                        if (card && card.id) colorMap[card.id] = card.color_identity || card.colors || [];
-                    });
-                }
-            } catch (e) { }
-        }
-        cardCache.forEach(card => { card.colors = colorMap[card.scryfall_id] || []; });
-    }
-
-    async function triggerSearch() {
-        const q = document.getElementById('search-input') ? document.getElementById('search-input').value.trim() : "";
-        const sortBy = document.getElementById('sort-select') ? document.getElementById('sort-select').value : "name_asc";
-        document.getElementById('loading-spinner').classList.remove('hidden');
-
-        let url = `/api/search?q=${encodeURIComponent(q)}&sort_by=${sortBy}`;
-        if (activeRarities.length > 0) url += `&rarity=${activeRarities.join(',')}`;
-
-        try {
-            const res = await fetch(url);
-            const data = await res.json();
-            cardCache = data.results || [];
-            await fetchBatchColors();
-            filterCurrentResults();
-        } catch (e) {
-            console.error(e);
-        } finally {
-            document.getElementById('loading-spinner').classList.add('hidden');
-            if (window.lucide) lucide.createIcons();
-        }
-    }
-
-    function filterCurrentResults() {
-        const grid = document.getElementById('results-grid');
-        const noResults = document.getElementById('no-results');
-        if (cardCache.length === 0) {
-            grid.innerHTML = '';
-            noResults.classList.remove('hidden');
-            return;
-        }
-
-        let filteredCards = cardCache;
-        if (activeColors.length > 0) {
-            filteredCards = cardCache.filter(card => {
-                const cardColors = card.colors || [];
-                if (isCommanderMode) {
-                    if (cardColors.length === 0) return activeColors.includes('C');
-                    return cardColors.every(c => activeColors.includes(c));
-                }
-                if (cardColors.length === 0) return activeColors.includes('C');
-                const coloredSelections = activeColors.filter(c => c !== 'C');
-                if (coloredSelections.length === 0) return false;
-                return coloredSelections.some(c => cardColors.includes(c));
-            });
-        }
-
-        if (filteredCards.length === 0) {
-            grid.innerHTML = '';
-            noResults.classList.remove('hidden');
-            return;
-        }
-
-        noResults.classList.add('hidden');
-        const grouped = {};
-        filteredCards.forEach(item => {
-            if (!grouped[item.name]) grouped[item.name] = [];
-            grouped[item.name].push(item);
-        });
-
-        grid.innerHTML = '';
-        window.cardStore = {};
-        let index = 0;
-
-        Object.keys(grouped).forEach(cardName => {
-            const locations = grouped[cardName];
-            const card = locations[0];
-            const imageUrl = getScryfallImageUrl(card.scryfall_id);
-            const priceFormatted = card.purchase_price ? `${card.purchase_price}€` : '-';
-            const totalQty = locations.reduce((acc, l) => acc + (l.total_quantity || 1), 0);
-            const collectorNum = card.collector_number ? `#${card.collector_number}` : '';
-
-            const storeKey = `card_${index++}`;
-            window.cardStore[storeKey] = { card, locations };
-
-            grid.innerHTML += `
-                <div onclick="openCardModalFromStore('${storeKey}')" class="mtg-card-item group">
-                    <div class="mtg-card-img-wrapper">
-                        <img src="${imageUrl}" alt="" loading="lazy" class="mtg-card-img" onerror="this.onerror=null; this.src='https://cards.scryfall.io/back.png';">
-                    </div>
-                    <div class="py-1 px-1 flex items-center justify-between text-[11px] text-zinc-400 border-t border-white/5 mt-1 pt-1">
-                        <span class="bg-zinc-900/90 text-white font-bold text-[10px] px-1.5 py-0.5 rounded border border-white/10 font-mono">${totalQty}x</span>
-                        <span class="flex items-center gap-1 font-bold tracking-wider text-zinc-300 group-hover:text-amber-400 transition">
-                            <i class="ms ms-${card.set_code.toLowerCase()} ms-shadow"></i> ${card.set_code.toUpperCase()} ${collectorNum}
-                        </span>
-                        <span class="bg-zinc-900/90 text-amber-400 font-bold text-[10px] px-1.5 py-0.5 rounded border border-amber-500/20 font-mono">${priceFormatted}</span>
-                    </div>
-                </div>
-            `;
-        });
-        if (window.lucide) lucide.createIcons();
-    }
-
-    function openCardModalFromStore(storeKey) {
-        const data = window.cardStore[storeKey];
-        if (data) openCardModal(data.card.scryfall_id, data.card, data.locations);
-    }
-
-    async function openCardModal(scryfallId, card, locations) {
-        const modal = document.getElementById('card-modal');
-        const imgUrl = getScryfallImageUrl(scryfallId);
-
-        document.getElementById('modal-card-img').src = imgUrl;
-        document.getElementById('modal-bg-blur').style.backgroundImage = `url('${imgUrl}')`;
-        document.getElementById('modal-card-title').textContent = card.name;
-        document.getElementById('modal-set-info').textContent = `${card.set_name} (${card.set_code.toUpperCase()}) ${card.collector_number ? '#' + card.collector_number : ''}`;
-        document.getElementById('modal-set-icon').className = `ms ms-${card.set_code.toLowerCase()} text-[18px]`;
-        document.getElementById('modal-card-price').textContent = card.purchase_price ? `${card.purchase_price} €` : 'N/A';
-
-        const rarityElem = document.getElementById('modal-card-rarity');
-        const r = (card.rarity || 'common').toLowerCase();
-        const rNames = { common: 'Común', uncommon: 'Infrecuente', rare: 'Rara', mythic: 'Mítica' };
-        rarityElem.className = `badge-pill badge-${r}`;
-        rarityElem.textContent = rNames[r] || 'Común';
-
-        document.getElementById('modal-card-locations').innerHTML = locations.map(l => `
-            <div class="flex justify-between items-center py-1.5 px-3 rounded-xl ${l.is_deck ? 'bg-amber-500/10 text-amber-300 border-amber-500/20' : 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20'} border backdrop-blur-md">
-                <span class="font-medium flex items-center gap-2">
-                    <i data-lucide="${l.is_deck ? 'swords' : 'box'}" class="w-3.5 h-3.5"></i> ${l.location}
-                </span>
-                <span class="font-bold bg-black/40 px-2 py-0.5 rounded-md font-mono">${l.total_quantity}x</span>
-            </div>
-        `).join('');
-
-        modal.classList.remove('hidden');
-        if (window.lucide) lucide.createIcons();
-
-        const textContainer = document.getElementById('modal-card-text');
-        const translatedNameElem = document.getElementById('modal-card-translated-name');
-        const typeElem = document.getElementById('modal-card-type');
-        const manaElem = document.getElementById('modal-mana-cost');
-        textContainer.innerHTML = '<span class="text-amber-400 animate-pulse">Obteniendo texto oficial...</span>';
-
-        try {
-            const resEn = await fetch(`https://api.scryfall.com/cards/${scryfallId}`);
-            const dataEn = await resEn.json();
-            typeElem.textContent = dataEn.type_line || 'Carta de Magic';
-            manaElem.innerHTML = formatManaAndText(dataEn.mana_cost || '');
-
-            let textEs = null;
-            let nameEs = null;
-            if (dataEn.oracle_id) {
-                const searchRes = await fetch(`https://api.scryfall.com/cards/search?q=oracle_id:${dataEn.oracle_id}+lang:es`);
-                if (searchRes.ok) {
-                    const searchData = await searchRes.json();
-                    if (searchData.data && searchData.data.length > 0) {
-                        const cardEs = searchData.data[0];
-                        nameEs = cardEs.printed_name || cardEs.name;
-                        textEs = cardEs.printed_text || cardEs.oracle_text;
-                    }
-                }
-            }
-            if (textEs) {
-                translatedNameElem.textContent = `🇪🇸 ${nameEs}`;
-                textContainer.innerHTML = formatManaAndText(textEs).replace(/\n/g, '<br>');
-            } else {
-                translatedNameElem.textContent = '';
-                textContainer.innerHTML = formatManaAndText(dataEn.oracle_text || 'Sin texto de regla.').replace(/\n/g, '<br>');
-            }
-        } catch (e) {
-            textContainer.textContent = 'Sin texto disponible.';
-        }
-    }
-
-    function closeCardModal() { document.getElementById('card-modal').classList.add('hidden'); }
-
-    // Carga inicial
-    triggerSearch();
-</script>
