@@ -9,7 +9,7 @@
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
 
-    <!-- Mana CSS (Símbolos Oficiales de MTG) -->
+    <!-- Mana CSS (Símbolos Oficiales de MTG y Ediciones) -->
     <link href="https://cdn.jsdelivr.net/npm/mana-font@1.4.1/css/mana.min.css" rel="stylesheet" type="text/css" />
 
     <script>
@@ -18,20 +18,34 @@
             theme: {
                 extend: {
                     colors: {
-                        mtgDark: '#0f0f12',
-                        mtgCard: '#18181c',
-                        mtgHeader: '#121216'
+                        mtgDark: '#0b0b0e',
+                        mtgCard: '#121216',
+                        mtgHeader: '#16161c'
                     }
                 }
             }
         }
     </script>
+    <style>
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #121216;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #27272a;
+            border-radius: 4px;
+        }
+    </style>
 </head>
 
 <body class="bg-mtgDark text-gray-200 min-h-screen font-sans">
 
     <!-- Navegación Superior -->
-    <header class="bg-mtgHeader border-b border-gray-800 sticky top-0 z-50 px-6 py-3">
+    <header class="bg-mtgHeader border-b border-gray-800/80 sticky top-0 z-40 px-6 py-3">
         <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
 
             <div class="flex items-center space-x-6">
@@ -43,7 +57,6 @@
                     </h1>
                 </div>
 
-                <!-- Menú de Pestañas / Secciones -->
                 <nav class="flex space-x-1 bg-gray-900/80 p-1 rounded-xl border border-gray-800 text-sm">
                     <button onclick="switchTab('search-tab')" id="nav-search-tab"
                         class="tab-btn px-4 py-1.5 rounded-lg font-medium text-amber-400 bg-mtgCard transition">
@@ -56,7 +69,6 @@
                 </nav>
             </div>
 
-            <!-- Botón Sincronizar Cardmarket + Stats Rápidas -->
             <div class="flex items-center gap-4">
                 <button onclick="updatePricesNow()" id="btn-update-prices"
                     class="text-xs px-3 py-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition flex items-center gap-1 font-semibold">
@@ -73,30 +85,24 @@
         </div>
     </header>
 
-    <main class="max-w-7xl mx-auto px-6 py-6">
+    <main class="max-w-7xl mx-auto px-4 py-6">
 
-        <!-- PESTAÑA 1: BUSCADOR CON FILTROS Y ORDENACIÓN -->
+        <!-- PESTAÑA 1: COLECCIÓN -->
         <section id="search-tab" class="tab-content space-y-6">
 
-            <!-- Panel de Búsqueda y Filtros -->
-            <div class="bg-mtgCard border border-gray-800 rounded-2xl p-5 space-y-4 shadow-xl">
+            <!-- Panel de Búsqueda y Filtros Compacto -->
+            <div class="bg-mtgCard border border-gray-800/80 rounded-2xl p-4 space-y-4 shadow-xl">
 
-                <!-- Buscador Principal + Desplegable de Ordenación -->
                 <div class="flex flex-col md:flex-row gap-3">
                     <div class="relative flex-1">
-                        <input type="text" id="search-input"
-                            placeholder="Buscar por nombre o deja vacío para ver todo..."
-                            class="w-full px-5 py-3.5 bg-gray-900 border border-gray-700 rounded-xl text-gray-100 placeholder-gray-500 focus:outline-none focus:border-amber-500 transition">
+                        <input type="text" id="search-input" placeholder="Buscar carta por nombre..."
+                            class="w-full px-4 py-2.5 bg-gray-900 border border-gray-800 rounded-xl text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-amber-500 transition">
                         <span class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400">🔍</span>
                     </div>
 
-                    <!-- Desplegable Ordenar Por -->
-                    <div class="relative min-w-[210px]">
-                        <label
-                            class="absolute -top-2 left-3 bg-mtgCard px-1 text-[10px] text-gray-400 font-semibold uppercase tracking-wider">Ordenar
-                            por</label>
+                    <div class="relative min-w-[200px]">
                         <select id="sort-select" onchange="triggerSearch()"
-                            class="w-full h-full px-4 py-3.5 bg-gray-900 border border-gray-700 rounded-xl text-xs text-amber-400 font-semibold focus:outline-none focus:border-amber-500 cursor-pointer appearance-none">
+                            class="w-full px-4 py-2.5 bg-gray-900 border border-gray-800 rounded-xl text-xs text-amber-400 font-semibold focus:outline-none focus:border-amber-500 cursor-pointer appearance-none">
                             <option value="name_asc">🔤 Nombre (A - Z)</option>
                             <option value="name_desc">🔤 Nombre (Z - A)</option>
                             <option value="price_desc">💲 Precio (Mayor a Menor)</option>
@@ -109,80 +115,67 @@
                     </div>
                 </div>
 
-                <!-- Filtros Secundarios -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-gray-800 pt-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-gray-800/80 pt-3">
 
-                    <!-- Filtro por Rareza -->
                     <div>
-                        <label class="block text-xs font-semibold text-gray-400 mb-2">Rareza</label>
-                        <div class="flex flex-wrap gap-2 text-xs">
+                        <label class="block text-[11px] font-semibold text-gray-400 mb-1.5">Rareza</label>
+                        <div class="flex flex-wrap gap-1.5 text-xs">
                             <button onclick="toggleRarity('common')" id="rarity-common"
-                                class="rarity-btn px-3 py-1.5 rounded-lg border border-gray-700 bg-gray-900 text-gray-300 transition">Común</button>
+                                class="rarity-btn px-2.5 py-1 rounded-md border border-gray-800 bg-gray-900 text-gray-300">Común</button>
                             <button onclick="toggleRarity('uncommon')" id="rarity-uncommon"
-                                class="rarity-btn px-3 py-1.5 rounded-lg border border-gray-700 bg-gray-900 text-gray-300 transition">Infrecuente</button>
+                                class="rarity-btn px-2.5 py-1 rounded-md border border-gray-800 bg-gray-900 text-gray-300">Infrecuente</button>
                             <button onclick="toggleRarity('rare')" id="rarity-rare"
-                                class="rarity-btn px-3 py-1.5 rounded-lg border border-gray-700 bg-gray-900 text-amber-400/80 transition">Rara</button>
+                                class="rarity-btn px-2.5 py-1 rounded-md border border-gray-800 bg-gray-900 text-amber-400/80">Rara</button>
                             <button onclick="toggleRarity('mythic')" id="rarity-mythic"
-                                class="rarity-btn px-3 py-1.5 rounded-lg border border-gray-700 bg-gray-900 text-orange-400/80 transition">Mítica</button>
+                                class="rarity-btn px-2.5 py-1 rounded-md border border-gray-800 bg-gray-900 text-orange-400/80">Mítica</button>
                         </div>
                     </div>
 
-                    <!-- Filtro por Colores + Botón Commander Identity -->
                     <div>
-                        <div class="flex justify-between items-center mb-2">
-                            <label class="block text-xs font-semibold text-gray-400">Colores</label>
-
-                            <!-- Botón Modo Commander Identity -->
+                        <div class="flex justify-between items-center mb-1.5">
+                            <label class="block text-[11px] font-semibold text-gray-400">Colores</label>
                             <button onclick="toggleCommanderMode()" id="commander-toggle"
-                                class="text-xs px-2.5 py-1 rounded-lg border border-gray-700 bg-gray-900 text-gray-400 hover:text-white transition flex items-center gap-1.5">
-                                <span id="commander-dot" class="w-2 h-2 rounded-full bg-gray-600"></span>
+                                class="text-[11px] px-2 py-0.5 rounded-md border border-gray-800 bg-gray-900 text-gray-400 hover:text-white transition flex items-center gap-1">
+                                <span id="commander-dot" class="w-1.5 h-1.5 rounded-full bg-gray-600"></span>
                                 Commander Identity
                             </button>
                         </div>
 
-                        <!-- Botones de Colores Oficiales -->
-                        <div class="flex gap-2 text-xl">
-                            <button onclick="toggleColor('W')" id="color-W" title="Blanco"
-                                class="color-btn p-1 rounded-full border border-transparent hover:scale-110 transition opacity-60 hover:opacity-100">
-                                <i class="ms ms-w ms-cost shadow-md rounded-full"></i>
-                            </button>
-                            <button onclick="toggleColor('U')" id="color-U" title="Azul"
-                                class="color-btn p-1 rounded-full border border-transparent hover:scale-110 transition opacity-60 hover:opacity-100">
-                                <i class="ms ms-u ms-cost shadow-md rounded-full"></i>
-                            </button>
-                            <button onclick="toggleColor('B')" id="color-B" title="Negro"
-                                class="color-btn p-1 rounded-full border border-transparent hover:scale-110 transition opacity-60 hover:opacity-100">
-                                <i class="ms ms-b ms-cost shadow-md rounded-full"></i>
-                            </button>
-                            <button onclick="toggleColor('R')" id="color-R" title="Rojo"
-                                class="color-btn p-1 rounded-full border border-transparent hover:scale-110 transition opacity-60 hover:opacity-100">
-                                <i class="ms ms-r ms-cost shadow-md rounded-full"></i>
-                            </button>
-                            <button onclick="toggleColor('G')" id="color-G" title="Verde"
-                                class="color-btn p-1 rounded-full border border-transparent hover:scale-110 transition opacity-60 hover:opacity-100">
-                                <i class="ms ms-g ms-cost shadow-md rounded-full"></i>
-                            </button>
-                            <button onclick="toggleColor('C')" id="color-C" title="Incoloro"
-                                class="color-btn p-1 rounded-full border border-transparent hover:scale-110 transition opacity-60 hover:opacity-100">
-                                <i class="ms ms-c ms-cost shadow-md rounded-full"></i>
-                            </button>
+                        <div class="flex gap-1.5 text-lg">
+                            <button onclick="toggleColor('W')" id="color-W"
+                                class="color-btn p-0.5 rounded-full border border-transparent opacity-60 hover:opacity-100 transition"><i
+                                    class="ms ms-w ms-cost shadow"></i></button>
+                            <button onclick="toggleColor('U')" id="color-U"
+                                class="color-btn p-0.5 rounded-full border border-transparent opacity-60 hover:opacity-100 transition"><i
+                                    class="ms ms-u ms-cost shadow"></i></button>
+                            <button onclick="toggleColor('B')" id="color-B"
+                                class="color-btn p-0.5 rounded-full border border-transparent opacity-60 hover:opacity-100 transition"><i
+                                    class="ms ms-b ms-cost shadow"></i></button>
+                            <button onclick="toggleColor('R')" id="color-R"
+                                class="color-btn p-0.5 rounded-full border border-transparent opacity-60 hover:opacity-100 transition"><i
+                                    class="ms ms-r ms-cost shadow"></i></button>
+                            <button onclick="toggleColor('G')" id="color-G"
+                                class="color-btn p-0.5 rounded-full border border-transparent opacity-60 hover:opacity-100 transition"><i
+                                    class="ms ms-g ms-cost shadow"></i></button>
+                            <button onclick="toggleColor('C')" id="color-C"
+                                class="color-btn p-0.5 rounded-full border border-transparent opacity-60 hover:opacity-100 transition"><i
+                                    class="ms ms-c ms-cost shadow"></i></button>
                         </div>
                     </div>
 
                 </div>
             </div>
 
-            <!-- Indicador de Carga -->
-            <div id="loading-spinner" class="hidden text-center py-8 text-amber-400">
-                <span class="animate-spin inline-block mr-2">⏳</span> Cargando y organizando la colección...
+            <div id="loading-spinner" class="hidden text-center py-8 text-amber-400 text-sm">
+                <span class="animate-spin inline-block mr-2">⏳</span> Cargar colección...
             </div>
 
-            <!-- Resultados -->
-            <div id="results-grid" class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                <!-- Se rellena vía JavaScript -->
+            <!-- PARRILLA DE CARTAS COMPACTA (Estilo ManaBox) -->
+            <div id="results-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                <!-- Se llena con JS -->
             </div>
-            <div id="no-results" class="text-center py-12 text-gray-500 hidden">
-                No se encontraron cartas que coincidan con la búsqueda.
+            <div id="no-results" class="text-center py-12 text-gray-500 hidden text-sm">
+                No hay cartas que coincidan con los filtros.
             </div>
         </section>
 
@@ -190,27 +183,23 @@
         <section id="import-tab" class="tab-content hidden max-w-xl mx-auto">
             <div class="bg-mtgCard p-6 rounded-2xl border border-gray-800 shadow-xl space-y-4">
                 <h2 class="text-lg font-bold text-amber-400">📤 Importar Archivo CSV de ManaBox</h2>
-
                 <form id="upload-form" class="space-y-4">
                     <div>
                         <label class="block text-xs text-gray-400 mb-1">Seleccionar CSV</label>
                         <input type="file" id="csv-file" accept=".csv" required
                             class="w-full text-xs text-gray-400 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-amber-500/10 file:text-amber-400 hover:file:bg-amber-500/20 border border-gray-700 rounded-lg cursor-pointer bg-gray-900">
                     </div>
-
                     <div>
                         <label class="block text-xs text-gray-400 mb-1">Nombre de Ubicación / Mazo</label>
                         <input type="text" id="location-input" placeholder="Ej: Bulk General, Mazo Atraxa..." required
                             class="w-full px-3 py-2 text-sm bg-gray-900 border border-gray-700 rounded-lg text-gray-200 focus:outline-none focus:border-amber-500">
                     </div>
-
                     <div class="flex items-center gap-2">
                         <input type="checkbox" id="is-deck-checkbox"
                             class="rounded bg-gray-900 border-gray-700 text-amber-500">
                         <label for="is-deck-checkbox" class="text-xs text-gray-300">Es un mazo montado (no bulk
                             general)</label>
                     </div>
-
                     <button type="submit"
                         class="w-full bg-amber-500 hover:bg-amber-600 text-black font-bold py-2.5 rounded-lg text-sm transition">
                         Subir al Servidor
@@ -222,13 +211,74 @@
 
     </main>
 
+    <!-- MODAL VENTANA FLOTANTE DETALLE DE CARTA -->
+    <div id="card-modal"
+        class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div
+            class="bg-mtgCard border border-gray-800 rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden shadow-2xl flex flex-col md:flex-row relative">
+
+            <!-- Botón Cerrar X -->
+            <button onclick="closeCardModal()"
+                class="absolute top-3 right-3 text-gray-400 hover:text-white bg-gray-900/80 p-2 rounded-full z-10">
+                ✕
+            </button>
+
+            <!-- Lado Izquierdo: Imagen de la Carta -->
+            <div class="p-6 md:w-1/2 flex items-center justify-center bg-gray-950/50">
+                <img id="modal-card-img" src=""
+                    class="w-full max-w-[280px] rounded-xl shadow-2xl object-cover aspect-[5/7]">
+            </div>
+
+            <!-- Lado Derecho: Detalles de la Carta -->
+            <div class="p-6 md:w-1/2 flex flex-col justify-between overflow-y-auto custom-scrollbar space-y-4">
+                <div>
+                    <!-- Nombre Original e Inglés/Español -->
+                    <div class="flex items-start justify-between gap-2 mb-1">
+                        <h2 id="modal-card-title" class="text-xl font-bold text-gray-100"></h2>
+                        <span id="modal-mana-cost" class="text-lg"></span>
+                    </div>
+                    <p id="modal-card-translated-name" class="text-sm text-amber-400 italic mb-2"></p>
+
+                    <!-- Edición y Set Code -->
+                    <div
+                        class="flex items-center gap-2 text-xs text-gray-400 mb-4 bg-gray-900/80 p-2 rounded-lg border border-gray-800">
+                        <i id="modal-set-icon" class="ms text-base"></i>
+                        <span id="modal-set-info"></span>
+                    </div>
+
+                    <!-- Texto de la Carta Traducido al Español -->
+                    <div class="space-y-2">
+                        <h4 class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Efecto / Texto</h4>
+                        <div id="modal-card-text"
+                            class="text-xs bg-gray-900/60 p-3 rounded-xl text-gray-200 border border-gray-800 leading-relaxed space-y-1">
+                            Cargando traducción oficial...
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Ubicaciones y Precio -->
+                <div class="space-y-3 pt-3 border-t border-gray-800">
+                    <div class="flex justify-between items-center text-xs">
+                        <span class="text-gray-400">Precio estimado Cardmarket:</span>
+                        <span id="modal-card-price" class="font-bold text-amber-400 text-sm"></span>
+                    </div>
+
+                    <div>
+                        <span class="text-xs text-gray-400 block mb-1">Ubicación / Inventario:</span>
+                        <div id="modal-card-locations" class="space-y-1 text-xs"></div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
     <script>
         let activeRarities = [];
         let activeColors = [];
         let isCommanderMode = false;
         let cardCache = [];
 
-        // Cambio de Pestañas
         function switchTab(tabId) {
             document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
             document.querySelectorAll('.tab-btn').forEach(el => {
@@ -241,7 +291,6 @@
             document.getElementById(`nav-${tabId}`).classList.remove('text-gray-400');
         }
 
-        // Sincronización Manual de Precios de Cardmarket
         async function updatePricesNow() {
             const btn = document.getElementById('btn-update-prices');
             btn.innerHTML = '⏳ Sincronizando...';
@@ -249,8 +298,7 @@
 
             try {
                 const res = await fetch('/api/update-prices', { method: 'POST' });
-                const data = await res.json();
-                alert("Sincronización con Cardmarket iniciada en segundo plano. Los precios se actualizarán en breve.");
+                alert("Sincronización de precios iniciada.");
             } catch (e) {
                 alert("Error al iniciar actualización.");
             } finally {
@@ -259,7 +307,6 @@
             }
         }
 
-        // Toggle Modo Commander Identity
         function toggleCommanderMode() {
             isCommanderMode = !isCommanderMode;
             const btn = document.getElementById('commander-toggle');
@@ -267,44 +314,40 @@
 
             if (isCommanderMode) {
                 btn.classList.add('border-amber-500', 'bg-amber-500/10', 'text-amber-400');
-                btn.classList.remove('border-gray-700', 'bg-gray-900', 'text-gray-400');
+                btn.classList.remove('border-gray-800', 'bg-gray-900', 'text-gray-400');
                 dot.classList.add('bg-amber-400');
-                dot.classList.remove('bg-gray-600');
             } else {
                 btn.classList.remove('border-amber-500', 'bg-amber-500/10', 'text-amber-400');
-                btn.classList.add('border-gray-700', 'bg-gray-900', 'text-gray-400');
+                btn.classList.add('border-gray-800', 'bg-gray-900', 'text-gray-400');
                 dot.classList.remove('bg-amber-400');
-                dot.classList.add('bg-gray-600');
             }
 
             filterCurrentResults();
         }
 
-        // Toggle Rareza
         function toggleRarity(rarity) {
             const btn = document.getElementById(`rarity-${rarity}`);
             if (activeRarities.includes(rarity)) {
                 activeRarities = activeRarities.filter(r => r !== rarity);
                 btn.classList.remove('bg-amber-500/20', 'border-amber-500');
-                btn.classList.add('bg-gray-900', 'border-gray-700');
+                btn.classList.add('bg-gray-900', 'border-gray-800');
             } else {
                 activeRarities.push(rarity);
                 btn.classList.add('bg-amber-500/20', 'border-amber-500');
-                btn.classList.remove('bg-gray-900', 'border-gray-700');
+                btn.classList.remove('bg-gray-900', 'border-gray-800');
             }
             triggerSearch();
         }
 
-        // Toggle Color
         function toggleColor(color) {
             const btn = document.getElementById(`color-${color}`);
             if (activeColors.includes(color)) {
                 activeColors = activeColors.filter(c => c !== color);
-                btn.classList.remove('border-amber-400', 'ring-2', 'ring-amber-400/50', 'opacity-100', 'scale-110');
+                btn.classList.remove('border-amber-400', 'ring-2', 'ring-amber-400/50', 'opacity-100');
                 btn.classList.add('border-transparent', 'opacity-60');
             } else {
                 activeColors.push(color);
-                btn.classList.add('border-amber-400', 'ring-2', 'ring-amber-400/50', 'opacity-100', 'scale-110');
+                btn.classList.add('border-amber-400', 'ring-2', 'ring-amber-400/50', 'opacity-100');
                 btn.classList.remove('border-transparent', 'opacity-60');
             }
             filterCurrentResults();
@@ -337,7 +380,6 @@
 
                 await fetchCardColorsAndCMC();
 
-                // Ordenación en cliente por Coste de Maná (CMC)
                 if (sortBy === 'cmc_asc') {
                     cardCache.sort((a, b) => (a.cmc || 0) - (b.cmc || 0));
                 } else if (sortBy === 'cmc_desc') {
@@ -430,31 +472,95 @@
                 const locations = grouped[cardName];
                 const card = locations[0];
                 const imageUrl = `https://api.scryfall.com/cards/${card.scryfall_id}?format=image`;
-                const priceFormatted = card.purchase_price ? `${card.purchase_price}€` : '';
+                const priceFormatted = card.purchase_price ? `${card.purchase_price}€` : '-';
+                const totalQty = locations.reduce((acc, l) => acc + (l.total_quantity || 1), 0);
 
+                // Tarjeta Ultra Fina / Estilo ManaBox Screenshot
                 const cardHtml = `
-                    <div class="bg-mtgCard border border-gray-800 rounded-2xl p-4 flex flex-col justify-between hover:border-amber-500/40 transition shadow-lg">
-                        <div>
-                            <div class="relative mb-3 overflow-hidden rounded-xl bg-gray-900 aspect-[5/7]">
-                                <img src="${imageUrl}" alt="${cardName}" loading="lazy" class="w-full h-full object-cover hover:scale-105 transition duration-300" onerror="this.src='https://cards.scryfall.io/back.png';">
-                                ${priceFormatted ? `<span class="absolute top-2 right-2 bg-gray-900/90 text-amber-400 text-[11px] font-bold px-2 py-0.5 rounded-md border border-amber-500/30 shadow-md">${priceFormatted}</span>` : ''}
-                            </div>
-                            <h3 class="font-bold text-sm text-gray-100 mb-0.5">${cardName}</h3>
-                            <p class="text-xs text-gray-400 mb-3">${card.set_name} (${card.set_code.toUpperCase()})</p>
+                    <div onclick="openCardModal('${card.scryfall_id}', '${encodeURIComponent(JSON.stringify(locations))}')" 
+                        class="bg-mtgCard border border-gray-800/80 hover:border-amber-500/60 rounded-xl p-1 flex flex-col justify-between cursor-pointer transition shadow-md hover:scale-[1.02] group">
+                        
+                        <div class="relative overflow-hidden rounded-lg bg-gray-900 aspect-[5/7]">
+                            <img src="${imageUrl}" alt="${cardName}" loading="lazy" class="w-full h-full object-cover rounded-lg">
+                            
+                            <!-- Cantidad Abajo Izquierda -->
+                            <span class="absolute bottom-1 left-1 bg-black/80 text-white font-bold text-[11px] px-1.5 py-0.2 rounded-md border border-white/10">
+                                ${totalQty}
+                            </span>
+
+                            <!-- Precio Abajo Derecha -->
+                            <span class="absolute bottom-1 right-1 bg-black/80 text-amber-400 font-bold text-[10px] px-1.5 py-0.2 rounded-md border border-amber-500/20">
+                                ${priceFormatted}
+                            </span>
                         </div>
 
-                        <div class="space-y-1.5 border-t border-gray-800 pt-2 text-xs">
-                            ${locations.map(loc => `
-                                <div class="flex justify-between items-center py-1 px-2 rounded ${loc.is_deck ? 'bg-amber-500/10 text-amber-300' : 'bg-emerald-500/10 text-emerald-300'}">
-                                    <span class="truncate">${loc.is_deck ? '⚔️ ' : '📦 '}${loc.location}</span>
-                                    <span class="font-bold ml-2">${loc.total_quantity}x</span>
-                                </div>
-                            `).join('')}
+                        <!-- Pie de Foto: Solo Logo / Código de Colección -->
+                        <div class="py-1 px-1 flex items-center justify-center gap-1.5 text-[11px] text-gray-400 group-hover:text-amber-400 transition">
+                            <i class="ms ms-${card.set_code.toLowerCase()} ms-shadow"></i>
+                            <span class="font-bold tracking-wider">${card.set_code.toUpperCase()}</span>
                         </div>
                     </div>
                 `;
                 grid.innerHTML += cardHtml;
             });
+        }
+
+        // Abrir Ventana Flotante con Datos Oficiales en Español
+        async function openCardModal(scryfallId, locationsJson) {
+            const locations = JSON.parse(decodeURIComponent(locationsJson));
+            const card = locations[0];
+            const modal = document.getElementById('card-modal');
+
+            document.getElementById('modal-card-img').src = `https://api.scryfall.com/cards/${scryfallId}?format=image`;
+            document.getElementById('modal-card-title').textContent = card.name;
+            document.getElementById('modal-set-info').textContent = `${card.set_name} (${card.set_code.toUpperCase()})`;
+            document.getElementById('modal-set-icon').className = `ms ms-${card.set_code.toLowerCase()} text-base`;
+            document.getElementById('modal-card-price').textContent = card.purchase_price ? `${card.purchase_price} €` : 'N/A';
+
+            // Cargar Ubicaciones
+            const locContainer = document.getElementById('modal-card-locations');
+            locContainer.innerHTML = locations.map(l => `
+                <div class="flex justify-between items-center py-1 px-2.5 rounded-lg ${l.is_deck ? 'bg-amber-500/10 text-amber-300' : 'bg-emerald-500/10 text-emerald-300'} border border-white/5">
+                    <span>${l.is_deck ? '⚔️ ' : '📦 '}${l.location}</span>
+                    <span class="font-bold">${l.total_quantity}x</span>
+                </div>
+            `).join('');
+
+            modal.classList.remove('hidden');
+
+            // Consultar a Scryfall el texto oficial traducido a español (/es)
+            const textContainer = document.getElementById('modal-card-text');
+            const translatedNameElem = document.getElementById('modal-card-translated-name');
+            textContainer.innerHTML = '<span class="text-amber-400">Buscando traducción oficial en español...</span>';
+
+            try {
+                // Buscamos la versión en español de esa carta
+                const res = await fetch(`https://api.scryfall.com/cards/${card.set_code.toLowerCase()}/${card.scryfall_id.split('-')[0]}/es`);
+
+                let textEs = '';
+                let nameEs = '';
+
+                if (res.ok) {
+                    const dataEs = await res.json();
+                    nameEs = dataEs.printed_name || dataEs.name;
+                    textEs = dataEs.printed_text || dataEs.oracle_text || 'Sin texto de regla.';
+                } else {
+                    // Si no tiene traducción en español oficial en Scryfall, mostramos el texto inglés
+                    const resEn = await fetch(`https://api.scryfall.com/cards/${scryfallId}`);
+                    const dataEn = await resEn.json();
+                    nameEs = dataEn.name;
+                    textEs = dataEn.oracle_text || 'Sin texto de regla.';
+                }
+
+                translatedNameElem.textContent = nameEs !== card.name ? `🇪🇸 ${nameEs}` : '';
+                textContainer.innerHTML = textEs.replace(/\n/g, '<br>');
+            } catch (e) {
+                textContainer.textContent = 'No se pudo cargar la traducción.';
+            }
+        }
+
+        function closeCardModal() {
+            document.getElementById('card-modal').classList.add('hidden');
         }
 
         // Subida de Archivo CSV
@@ -496,7 +602,6 @@
             } catch (e) { }
         }
 
-        // Inicialización
         loadStats();
         triggerSearch();
     </script>
