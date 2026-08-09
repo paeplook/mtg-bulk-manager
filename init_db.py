@@ -6,7 +6,17 @@ from datetime import datetime
 Base = declarative_base()
 
 def get_database_url():
-    return os.getenv("DATABASE_URL", "postgresql://postgres:postgres@db:5432/mtg_db")
+    # URL directa de tu base de datos con el prefijo "postgresql://" corregido
+    default_url = "postgresql://max:eqstHj4CR9mNS5n8dC2Ghd7y0Nth0gbNQZ2p5NXsbVev4KNGPaXeUhb2TyFGvk6m@sxslz0w9ehmdhleia2p18yxb:5432/mtg_db"
+    
+    # Intenta coger la de Coolify, si no la encuentra usa la tuya
+    url = os.getenv("DATABASE_URL", default_url)
+    
+    # Parche de seguridad por si Coolify inyecta el formato antiguo
+    if url.startswith("postgres://"):
+        url = url.replace("postgres://", "postgresql://", 1)
+        
+    return url
 
 # 1. Tabla de Inventario Físico (ManaBox)
 class CardInventory(Base):
