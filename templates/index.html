@@ -190,13 +190,12 @@
 
     </main>
 
-    <!-- MODAL REDISEÑADO CON ESPACIO SEGURO PARA BOTÓN 'X' -->
+    <!-- MODAL VENTANA FLOTANTE -->
     <div id="card-modal" class="modal-backdrop hidden">
         <div class="modal-content flex flex-col md:flex-row relative">
 
             <div id="modal-bg-blur" class="modal-bg-blur"></div>
 
-            <!-- Botón 'X' Posicionado sin tapar los símbolos -->
             <button onclick="closeCardModal()"
                 class="absolute top-3 right-3 text-gray-300 hover:text-white bg-black/80 backdrop-blur-md p-2 rounded-full z-30 border border-white/20 transition hover:scale-110">
                 ✕
@@ -212,7 +211,6 @@
             <div
                 class="p-6 md:w-1/2 flex flex-col justify-between overflow-y-auto custom-scrollbar space-y-4 modal-body-wrapper">
                 <div>
-                    <!-- Nombre y Coste de Maná con pr-10 para evitar la 'X' -->
                     <div class="flex items-start justify-between gap-2 mb-1 pr-10">
                         <div>
                             <h2 id="modal-card-title" class="text-2xl font-black text-white tracking-tight"></h2>
@@ -221,20 +219,17 @@
                         <div id="modal-mana-cost" class="flex gap-1 text-lg flex-shrink-0"></div>
                     </div>
 
-                    <!-- Badges -->
                     <div class="flex flex-wrap items-center gap-2 my-3">
                         <span id="modal-card-type" class="badge-pill text-gray-300"></span>
                         <span id="modal-card-rarity" class="badge-pill"></span>
                     </div>
 
-                    <!-- Edición -->
                     <div
                         class="flex items-center gap-2 text-xs text-gray-300 mb-4 bg-black/40 p-2.5 rounded-xl border border-white/10 backdrop-blur-md">
                         <i id="modal-set-icon" class="ms text-lg"></i>
                         <span id="modal-set-info" class="font-medium"></span>
                     </div>
 
-                    <!-- Texto de Reglas -->
                     <div class="space-y-1.5">
                         <h4 class="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Efecto / Texto Oficial
                         </h4>
@@ -244,7 +239,6 @@
                     </div>
                 </div>
 
-                <!-- Precio Cardmarket y Ubicaciones -->
                 <div class="space-y-3 pt-3 border-t border-white/10">
                     <div class="price-widget">
                         <div>
@@ -270,6 +264,7 @@
         let activeColors = [];
         let isCommanderMode = false;
         let cardCache = [];
+        window.cardStore = {}; // Almacenamiento seguro en memoria para evitar errores de comillas
 
         function toggleFiltersDrawer() {
             const drawer = document.getElementById('filters-drawer');
@@ -369,7 +364,6 @@
             });
         }
 
-        // Obtiene colores e identidades en LOTE (Batch) sin bloqueos de red
         async function fetchBatchColors() {
             const uniqueIds = [...new Set(cardCache.map(c => c.scryfall_id))].filter(Boolean);
             if (uniqueIds.length === 0) return;
@@ -425,9 +419,7 @@
                 const data = await res.json();
                 cardCache = data.results || [];
 
-                // Carga rápida en lote para que los filtros de color funcionen al 100%
                 await fetchBatchColors();
-
                 filterCurrentResults();
             } catch (e) {
                 console.error("Error buscando cartas", e);
@@ -482,7 +474,9 @@
             });
 
             grid.innerHTML = '';
+            window.cardStore = {}; // Limpiamos el almacén
 
+            let index = 0;
             Object.keys(grouped).forEach(cardName => {
                 const locations = grouped[cardName];
                 const card = locations[0];
@@ -491,16 +485,18 @@
                 const totalQty = locations.reduce((acc, l) => acc + (l.total_quantity || 1), 0);
                 const collectorNum = card.collector_number ? `#${card.collector_number}` : '';
 
-                // Tarjeta limpia con 3 columnas en el pie: [ Cantidad ] [ Edición ] [ Precio ]
+                // Guardamos en memoria con clave segura
+                const storeKey = `card_${index++}`;
+                window.cardStore[storeKey] = { card, locations };
+
                 const cardHtml = `
-                    <div onclick="openCardModal('${card.scryfall_id}', '${encodeURIComponent(JSON.stringify(locations))}')" 
+                    <div onclick="openCardModalFromStore('${storeKey}')" 
                         class="mtg-card-item group">
                         
                         <div class="mtg-card-img-wrapper">
-                            <img src="${imageUrl}" alt="${cardName}" loading="lazy" class="mtg-card-img" onerror="this.onerror=null; this.src='https://cards.scryfall.io/back.png';">
+                            <img src="${imageUrl}" alt="" loading="lazy" class="mtg-card-img" onerror="this.onerror=null; this.src='https://cards.scryfall.io/back.png';">
                         </div>
 
-                        <!-- Pie de la tarjeta: Cantidad | Edición | Precio -->
                         <div class="py-1 px-1 flex items-center justify-between text-[11px] text-gray-400 border-t border-white/5 mt-1 pt-1">
                             <span class="bg-gray-900/90 text-white font-bold text-[10px] px-1.5 py-0.5 rounded border border-white/10">
                                 ${totalQty}x
@@ -521,9 +517,15 @@
             });
         }
 
-        async function openCardModal(scryfallId, locationsJson) {
-            const locations = JSON.parse(decodeURIComponent(locationsJson));
-            const card = locations[0];
+        function openCardModalFromStore(storeKey) {
+            const data = window.cardStore[storeKey];
+            if (data) {
+                openCardModal(data.card.scryfall_id, data.card, data.locations);
+            }
+        }
+
+        // Traducción garantizada por Oracle ID o Nombre Oficial
+        async function openCardModal(scryfallId, card, locations) {
             const modal = document.getElementById('card-modal');
             const imgUrl = getScryfallImageUrl(scryfallId);
 
@@ -558,28 +560,36 @@
             textContainer.innerHTML = '<span class="text-amber-400 animate-pulse">Obteniendo texto oficial en español...</span>';
 
             try {
+                // 1. Obtenemos primero la carta original para sacar su oracle_id o datos en inglés
                 const resEn = await fetch(`https://api.scryfall.com/cards/${scryfallId}`);
                 const dataEn = await resEn.json();
 
                 typeElem.textContent = dataEn.type_line || 'Carta de Magic';
                 manaElem.innerHTML = formatManaAndText(dataEn.mana_cost || '');
 
-                const searchRes = await fetch(`https://api.scryfall.com/cards/search?q=!"${encodeURIComponent(card.name)}"+lang:es`);
-                if (searchRes.ok) {
-                    const searchData = await searchRes.json();
-                    if (searchData.data && searchData.data.length > 0) {
-                        const cardEs = searchData.data[0];
-                        const nameEs = cardEs.printed_name || cardEs.name;
-                        const textEs = cardEs.printed_text || cardEs.oracle_text || 'Sin texto de regla.';
+                let textEs = null;
+                let nameEs = null;
 
-                        translatedNameElem.textContent = `🇪🇸 ${nameEs}`;
-                        textContainer.innerHTML = formatManaAndText(textEs).replace(/\n/g, '<br>');
-                        return;
+                // 2. Intentamos buscar por oracle_id + lang:es (garantiza encontrar la traducción oficial si la carta existe en español)
+                if (dataEn.oracle_id) {
+                    const searchRes = await fetch(`https://api.scryfall.com/cards/search?q=oracle_id:${dataEn.oracle_id}+lang:es`);
+                    if (searchRes.ok) {
+                        const searchData = await searchRes.json();
+                        if (searchData.data && searchData.data.length > 0) {
+                            const cardEs = searchData.data[0];
+                            nameEs = cardEs.printed_name || cardEs.name;
+                            textEs = cardEs.printed_text || cardEs.oracle_text;
+                        }
                     }
                 }
 
-                translatedNameElem.textContent = '';
-                textContainer.innerHTML = formatManaAndText(dataEn.oracle_text || 'Sin texto de regla.').replace(/\n/g, '<br>');
+                if (textEs) {
+                    translatedNameElem.textContent = `🇪🇸 ${nameEs}`;
+                    textContainer.innerHTML = formatManaAndText(textEs).replace(/\n/g, '<br>');
+                } else {
+                    translatedNameElem.textContent = '';
+                    textContainer.innerHTML = formatManaAndText(dataEn.oracle_text || 'Sin texto de regla.').replace(/\n/g, '<br>');
+                }
 
             } catch (e) {
                 textContainer.textContent = 'Sin texto disponible.';
