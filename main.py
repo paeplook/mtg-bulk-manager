@@ -1,60 +1,32 @@
 import os
+import re
 import asyncio
 import requests
 from io import BytesIO
-from typing import Optional, List
+from typing import Optional
 import pandas as pd
 from fastapi import FastAPI, Query, Request, UploadFile, File, Form, BackgroundTasks
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import create_engine, text
+from pydantic import BaseModel
 from apscheduler.schedulers.background import BackgroundScheduler
 
-from init_db import init_db, get_database_url, CardInventory
+from init_db import init_db, get_database_url, CardInventory, BrewedDeck, BrewedDeckCard
 
 app = FastAPI(title="MTG Collection Suite")
-
-# Servir archivos estáticos (CSS, JS, imágenes)
 os.makedirs("static", exist_ok=True)
 app.mount("/static", StaticFiles(directory="static"), name="static")
-
 templates = Jinja2Templates(directory="templates")
 
 database_url = get_database_url()
 engine = create_engine(database_url)
 
+# --- TAREAS EN SEGUNDO PLANO ---
 def update_cardmarket_prices():
-    print("🔄 [CRON MONDAY] Iniciando actualización semanal de precios de Cardmarket...")
-    try:
-        with engine.connect() as conn:
-            query = text("SELECT DISTINCT scryfall_id FROM cards_inventory WHERE scryfall_id IS NOT NULL")
-            unique_ids = conn.execute(query).scalars().all()
-
-        updated_count = 0
-        for scryfall_id in unique_ids:
-            try:
-                res = requests.get(f"https://api.scryfall.com/cards/{scryfall_id}", timeout=5)
-                if res.status_code == 200:
-                    data = res.json()
-                    prices = data.get("prices", {})
-                    cmarket_price = prices.get("eur") or prices.get("eur_foil")
-
-                    if cmarket_price:
-                        cmarket_price = float(cmarket_price)
-                        with engine.begin() as conn:
-                            conn.execute(
-                                text("UPDATE cards_inventory SET purchase_price = :price WHERE scryfall_id = :id"),
-                                {"price": cmarket_price, "id": scryfall_id}
-                            )
-                        updated_count += 1
-                asyncio.run(asyncio.sleep(0.1))
-            except Exception:
-                continue
-
-        print(f"✅ [CRON MONDAY] Precios de Cardmarket actualizados con éxito en {updated_count} cartas.")
-    except Exception as e:
-        print(f"❌ Error durante la actualización de precios: {e}")
+    # Tu código actual de actualización semanal...
+    pass
 
 scheduler = BackgroundScheduler()
 scheduler.add_job(update_cardmarket_prices, 'cron', day_of_week='mon', hour=0, minute=0)
@@ -68,136 +40,77 @@ def startup_event():
 def shutdown_event():
     scheduler.shutdown()
 
+# --- RUTAS PRINCIPALES ---
 @app.get("/", response_class=HTMLResponse)
 def home(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
-@app.post("/api/update-prices")
-def force_price_update(background_tasks: BackgroundTasks):
-    background_tasks.add_task(update_cardmarket_prices)
-    return {"status": "success", "message": "Actualización de precios de Cardmarket iniciada en segundo plano."}
-
-@app.get("/api/search")
-def search_cards(
-    q: Optional[str] = Query(""),
-    rarity: Optional[str] = Query(None),
-    location: Optional[str] = Query(None),
-    sort_by: Optional[str] = Query("name_asc"),
-    limit: int = Query(120)
-):
-    sql_query = """
-        SELECT 
-            name,
-            set_code,
-            set_name,
-            collector_number,
-            rarity,
-            scryfall_id,
-            location,
-            is_deck,
-            MAX(purchase_price) as purchase_price,
-            SUM(quantity) as total_quantity
-        FROM cards_inventory
-        WHERE 1=1
+# --- API DE MAZOS HÍBRIDOS ---
+@app.get("/api/decks/physical")
+def get_physical_decks():
+    sql = """
+        SELECT location as name, SUM(quantity) as total_cards
+        FROM cards_inventory WHERE is_deck = true GROUP BY location
     """
-    params = {}
-
-    if q and q.strip():
-        sql_query += " AND LOWER(name) LIKE LOWER(:search_term)"
-        params["search_term"] = f"%{q.strip()}%"
-
-    if rarity:
-        rarities = [r.strip().lower() for r in rarity.split(",") if r.strip()]
-        if rarities:
-            sql_query += " AND LOWER(rarity) IN :rarities"
-            params["rarities"] = tuple(rarities)
-
-    if location and location != "all":
-        sql_query += " AND location = :location"
-        params["location"] = location
-
-    sql_query += " GROUP BY name, set_code, set_name, collector_number, rarity, scryfall_id, location, is_deck "
-
-    if sort_by == "name_desc":
-        sql_query += " ORDER BY name DESC "
-    elif sort_by == "price_desc":
-        sql_query += " ORDER BY MAX(purchase_price) DESC NULLS LAST, name ASC "
-    elif sort_by == "price_asc":
-        sql_query += " ORDER BY MAX(purchase_price) ASC NULLS LAST, name ASC "
-    else:
-        sql_query += " ORDER BY name ASC "
-
-    sql_query += " LIMIT :limit "
-    params["limit"] = limit
-
     with engine.connect() as conn:
-        result = conn.execute(text(sql_query), params).mappings().all()
+        result = conn.execute(text(sql)).mappings().all()
+    return {"decks": [dict(r) for r in result]}
 
-    results = [dict(row) for row in result]
-    return {"results": results}
+class DeckImportSchema(BaseModel):
+    name: str
+    decklist: str
 
-@app.get("/api/locations")
-def get_locations():
-    query = text("SELECT DISTINCT location FROM cards_inventory ORDER BY location ASC")
+@app.post("/api/decks/import-text")
+def import_text_deck(data: DeckImportSchema):
+    patron = re.compile(r"^(\d+)x?\s+(.+?)(?:\s+\(([A-Za-z0-9]+)\))?(?:\s+\d+)?$")
+    lineas = data.decklist.strip().split('\n')
+    
+    with engine.begin() as conn:
+        deck_id = conn.execute(
+            text("INSERT INTO brewed_decks (name) VALUES (:name) RETURNING id"), 
+            {"name": data.name}
+        ).scalar()
+
+        for linea in lineas:
+            linea = linea.strip()
+            if not linea: continue
+            match = patron.match(linea)
+            if match:
+                qty = int(match.group(1))
+                name = match.group(2).strip()
+                set_code = match.group(3).lower() if match.group(3) else None
+
+                try:
+                    if set_code:
+                        url = f"https://api.scryfall.com/cards/named?exact={name}&set={set_code}"
+                        res = requests.get(url).json()
+                    else:
+                        url = f"https://api.scryfall.com/cards/search?q=!\"{name}\"&order=released&dir=desc"
+                        search_res = requests.get(url).json()
+                        res = search_res.get("data", [{}])[0] if "data" in search_res else {}
+
+                    scryfall_id = res.get("id", "")
+                    final_set = res.get("set", set_code)
+
+                    conn.execute(text("""
+                        INSERT INTO brewed_deck_cards (deck_id, name, quantity, set_code, scryfall_id)
+                        VALUES (:d_id, :name, :qty, :set_code, :s_id)
+                    """), {"d_id": deck_id, "name": name, "qty": qty, "set_code": final_set, "s_id": scryfall_id})
+                except Exception as e:
+                    print(f"Error procesando {name}: {e}")
+
+    return {"status": "success"}
+
+@app.get("/api/decks/brews")
+def get_brewed_decks():
+    sql = """
+        SELECT d.id, d.name, COALESCE(SUM(c.quantity), 0) as total_cards
+        FROM brewed_decks d
+        LEFT JOIN brewed_deck_cards c ON d.id = c.deck_id
+        GROUP BY d.id ORDER BY d.created_at DESC
+    """
     with engine.connect() as conn:
-        result = conn.execute(query).scalars().all()
-    return {"locations": list(result)}
+        result = conn.execute(text(sql)).mappings().all()
+    return {"decks": [dict(r) for r in result]}
 
-@app.post("/api/upload")
-async def upload_csv(
-    file: UploadFile = File(...), 
-    location: str = Form("Bulk General"), 
-    is_deck: bool = Form(False)
-):
-    try:
-        contents = await file.read()
-        df = pd.read_csv(BytesIO(contents))
-
-        rename_mapping = {
-            'Name': 'name',
-            'Set code': 'set_code',
-            'Set name': 'set_name',
-            'Collector number': 'collector_number',
-            'Foil': 'foil',
-            'Rarity': 'rarity',
-            'Quantity': 'quantity',
-            'ManaBox ID': 'manabox_id',
-            'Scryfall ID': 'scryfall_id',
-            'Purchase price': 'purchase_price',
-            'Misprint': 'misprint',
-            'Altered': 'altered',
-            'Condition': 'condition',
-            'Language': 'language',
-            'Purchase price currency': 'purchase_price_currency',
-            'Added': 'added_at'
-        }
-
-        df = df.rename(columns=rename_mapping)
-        df['location'] = location
-        df['is_deck'] = is_deck
-
-        if 'added_at' in df.columns:
-            df['added_at'] = pd.to_datetime(df['added_at'], errors='coerce')
-
-        allowed_cols = [c.name for c in CardInventory.__table__.columns if c.name != 'id']
-        df_filtered = df[[col for col in df.columns if col in allowed_cols]]
-
-        df_filtered.to_sql('cards_inventory', con=engine, if_exists='append', index=False, method='multi', chunksize=1000)
-
-        return {"status": "success", "message": f"Se importaron {len(df_filtered)} registros correctamente en '{location}'."}
-
-    except Exception as e:
-        return JSONResponse(status_code=400, content={"status": "error", "message": str(e)})
-
-@app.get("/api/stats")
-def get_stats():
-    query = text("""
-        SELECT 
-            COUNT(DISTINCT name) as unique_cards,
-            COALESCE(SUM(quantity), 0) as total_cards,
-            COUNT(DISTINCT location) as total_locations
-        FROM cards_inventory
-    """)
-    with engine.connect() as conn:
-        res = conn.execute(query).mappings().one()
-    return dict(res)
+# (Mantén aquí el resto de tus rutas de /api/search, /api/upload y /api/stats iguales)

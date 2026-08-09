@@ -5,312 +5,62 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MTG Collection Suite</title>
-
-    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-
-    <!-- Lucide Icons (Iconos vectoriales ultra limpios y profesionales) -->
     <script src="https://unpkg.com/lucide@latest"></script>
-
-    <!-- Mana CSS (Símbolos Oficiales de MTG) -->
-    <link href="https://cdn.jsdelivr.net/npm/mana-font@1.4.1/css/mana.min.css" rel="stylesheet" type="text/css" />
-
-    <!-- Estilos Personalizados Separados -->
-    <link href="/static/style.css" rel="stylesheet" type="text/css" />
+    <link href="https://cdn.jsdelivr.net/npm/mana-font@1.4.1/css/mana.min.css" rel="stylesheet" />
+    <link href="/static/style.css" rel="stylesheet" />
 </head>
 
 <body class="min-h-screen">
 
-    <!-- CABECERA PROFESIONAL / SAAS HEADER -->
     <header class="app-header sticky top-0 z-40 px-6 py-2.5">
         <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-3">
-
-            <!-- Logo + Navegación -->
             <div class="flex items-center space-x-6">
-                <!-- Brand Logo -->
                 <div class="flex items-center space-x-2.5">
                     <div
-                        class="w-8 h-8 rounded-lg bg-gradient-to-tr from-amber-500 to-orange-600 flex items-center justify-center shadow-lg shadow-amber-500/20">
+                        class="w-8 h-8 rounded-lg bg-gradient-to-tr from-amber-500 to-orange-600 flex items-center justify-center shadow-lg">
                         <i class="ms ms-planeswalker text-black font-bold text-lg"></i>
                     </div>
                     <span
-                        class="text-base font-extrabold tracking-tight bg-gradient-to-r from-gray-100 via-gray-200 to-amber-400 bg-clip-text text-transparent">
-                        MTG<span class="text-amber-400 font-medium">Suite</span>
-                    </span>
+                        class="text-base font-extrabold bg-gradient-to-r from-gray-100 to-amber-400 bg-clip-text text-transparent">MTGSuite</span>
                 </div>
 
-                <!-- Segmented Control Nav -->
                 <nav class="flex p-1 bg-zinc-900/90 rounded-xl border border-zinc-800/80 text-xs font-medium">
-                    <button onclick="switchTab('search-tab')" id="nav-search-tab"
+                    <button onclick="switchTab('view-collection')" id="nav-view-collection"
                         class="tab-btn px-3.5 py-1.5 rounded-lg flex items-center gap-2 text-amber-400 bg-zinc-800/90 shadow-sm transition">
-                        <i data-lucide="layers" class="w-3.5 h-3.5"></i>
-                        <span>Colección</span>
+                        <i data-lucide="layers" class="w-3.5 h-3.5"></i> Colección
                     </button>
-                    <button onclick="switchTab('import-tab')" id="nav-import-tab"
+                    <button onclick="switchTab('view-decks')" id="nav-view-decks"
                         class="tab-btn px-3.5 py-1.5 rounded-lg flex items-center gap-2 text-zinc-400 hover:text-zinc-200 transition">
-                        <i data-lucide="upload-cloud" class="w-3.5 h-3.5"></i>
-                        <span>Importar CSV</span>
+                        <i data-lucide="swords" class="w-3.5 h-3.5"></i> Mazos
+                    </button>
+                    <button onclick="switchTab('view-import')" id="nav-view-import"
+                        class="tab-btn px-3.5 py-1.5 rounded-lg flex items-center gap-2 text-zinc-400 hover:text-zinc-200 transition">
+                        <i data-lucide="upload-cloud" class="w-3.5 h-3.5"></i> Importar CSV
                     </button>
                 </nav>
             </div>
-
-            <!-- Acciones + Métricas -->
-            <div class="flex items-center gap-3">
-                <button onclick="updatePricesNow()" id="btn-update-prices"
-                    class="text-xs px-3 py-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition flex items-center gap-1.5 font-medium shadow-sm">
-                    <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
-                    <span>Sincronizar Cardmarket</span>
-                </button>
-
-                <!-- Clean Stats Widget -->
-                <div
-                    class="flex items-center text-xs bg-zinc-900/80 px-3 py-1.5 rounded-xl border border-zinc-800 text-zinc-400">
-                    <div class="px-2 border-r border-zinc-800">
-                        Únicas: <span id="stat-unique" class="font-semibold font-mono text-amber-400">...</span>
-                    </div>
-                    <div class="px-2 border-r border-zinc-800">
-                        Total: <span id="stat-total" class="font-semibold font-mono text-amber-400">...</span>
-                    </div>
-                    <div class="px-2">
-                        Ubicaciones: <span id="stat-locations" class="font-semibold font-mono text-amber-400">...</span>
-                    </div>
-                </div>
-            </div>
-
         </div>
     </header>
 
     <main class="max-w-7xl mx-auto px-4 py-5">
+        <!-- Inyección de Componentes Modulares -->
+        <div id="view-collection" class="tab-content">
+            {% include 'views/collection.html' %}
+        </div>
 
-        <!-- PESTAÑA 1: COLECCIÓN -->
-        <section id="search-tab" class="tab-content space-y-4">
+        <div id="view-decks" class="tab-content hidden">
+            {% include 'views/decks.html' %}
+        </div>
 
-            <!-- Barra de Controles y Búsqueda -->
-            <div class="panel-card p-2.5 space-y-3">
-                <div class="flex flex-col md:flex-row gap-2.5 items-center">
-
-                    <!-- Search Bar -->
-                    <div class="relative flex-1 w-full">
-                        <i data-lucide="search"
-                            class="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500"></i>
-                        <input type="text" id="search-input" placeholder="Buscar carta por nombre..."
-                            class="w-full pl-10 pr-4 py-2 bg-zinc-900/90 border border-zinc-800 rounded-xl text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-amber-500/60 transition">
-                    </div>
-
-                    <!-- Filter Drawer Toggle -->
-                    <button onclick="toggleFiltersDrawer()" id="btn-filters-toggle"
-                        class="w-full md:w-auto px-3.5 py-2 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 rounded-xl text-xs text-zinc-300 font-medium transition flex items-center justify-center gap-2">
-                        <i data-lucide="sliders-horizontal" class="w-3.5 h-3.5 text-zinc-400"></i>
-                        <span>Filtros</span>
-                    </button>
-
-                    <!-- Sort Select -->
-                    <div class="relative w-full md:w-[190px]">
-                        <select id="sort-select" onchange="triggerSearch()"
-                            class="w-full px-3.5 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-xs text-amber-400 font-medium focus:outline-none focus:border-amber-500/60 cursor-pointer appearance-none">
-                            <option value="name_asc">🔤 Nombre (A - Z)</option>
-                            <option value="name_desc">🔤 Nombre (Z - A)</option>
-                            <option value="price_desc">💲 Precio (Mayor a Menor)</option>
-                            <option value="price_asc">💲 Precio (Menor a Mayor)</option>
-                        </select>
-                        <i data-lucide="chevron-down"
-                            class="w-3.5 h-3.5 absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none"></i>
-                    </div>
-
-                </div>
-
-                <!-- Cajón de Filtros Avanzados -->
-                <div id="filters-drawer"
-                    class="hidden border-t border-zinc-800/80 pt-3 grid grid-cols-1 md:grid-cols-2 gap-4 transition-all">
-
-                    <div>
-                        <label class="block text-[11px] font-medium text-zinc-400 mb-1.5">Rareza</label>
-                        <div class="flex flex-wrap gap-1.5 text-xs">
-                            <button onclick="toggleRarity('common')" id="rarity-common"
-                                class="px-2.5 py-1 rounded-md border border-zinc-800 bg-zinc-900 text-zinc-300">Común</button>
-                            <button onclick="toggleRarity('uncommon')" id="rarity-uncommon"
-                                class="px-2.5 py-1 rounded-md border border-zinc-800 bg-zinc-900 text-zinc-300">Infrecuente</button>
-                            <button onclick="toggleRarity('rare')" id="rarity-rare"
-                                class="px-2.5 py-1 rounded-md border border-zinc-800 bg-zinc-900 text-amber-400/80">Rara</button>
-                            <button onclick="toggleRarity('mythic')" id="rarity-mythic"
-                                class="px-2.5 py-1 rounded-md border border-zinc-800 bg-zinc-900 text-orange-400/80">Mítica</button>
-                        </div>
-                    </div>
-
-                    <div>
-                        <div class="flex justify-between items-center mb-1.5">
-                            <label class="block text-[11px] font-medium text-zinc-400">Colores</label>
-                            <button onclick="toggleCommanderMode()" id="commander-toggle"
-                                class="text-[11px] px-2 py-0.5 rounded-md border border-zinc-800 bg-zinc-900 text-zinc-400 hover:text-white transition flex items-center gap-1.5">
-                                <span id="commander-dot" class="w-1.5 h-1.5 rounded-full bg-zinc-600"></span>
-                                Commander Identity
-                            </button>
-                        </div>
-
-                        <div class="flex gap-1.5 text-lg">
-                            <button onclick="toggleColor('W')" id="color-W"
-                                class="p-0.5 rounded-full border border-transparent opacity-60 hover:opacity-100 transition"><i
-                                    class="ms ms-w ms-cost shadow"></i></button>
-                            <button onclick="toggleColor('U')" id="color-U"
-                                class="p-0.5 rounded-full border border-transparent opacity-60 hover:opacity-100 transition"><i
-                                    class="ms ms-u ms-cost shadow"></i></button>
-                            <button onclick="toggleColor('B')" id="color-B"
-                                class="p-0.5 rounded-full border border-transparent opacity-60 hover:opacity-100 transition"><i
-                                    class="ms ms-b ms-cost shadow"></i></button>
-                            <button onclick="toggleColor('R')" id="color-R"
-                                class="p-0.5 rounded-full border border-transparent opacity-60 hover:opacity-100 transition"><i
-                                    class="ms ms-r ms-cost shadow"></i></button>
-                            <button onclick="toggleColor('G')" id="color-G"
-                                class="p-0.5 rounded-full border border-transparent opacity-60 hover:opacity-100 transition"><i
-                                    class="ms ms-g ms-cost shadow"></i></button>
-                            <button onclick="toggleColor('C')" id="color-C"
-                                class="p-0.5 rounded-full border border-transparent opacity-60 hover:opacity-100 transition"><i
-                                    class="ms ms-c ms-cost shadow"></i></button>
-                        </div>
-                    </div>
-
-                </div>
-            </div>
-
-            <div id="loading-spinner"
-                class="hidden text-center py-8 text-amber-400 text-sm flex items-center justify-center gap-2">
-                <i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i>
-                <span>Cargando colección...</span>
-            </div>
-
-            <!-- PARRILLA DE CARTAS COMPACTA -->
-            <div id="results-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-                <!-- Se llena dinámicamente -->
-            </div>
-            <div id="no-results" class="text-center py-12 text-zinc-500 hidden text-sm">
-                No hay cartas que coincidan con la búsqueda.
-            </div>
-        </section>
-
-        <!-- PESTAÑA 2: IMPORTAR CSV -->
-        <section id="import-tab" class="tab-content hidden max-w-xl mx-auto">
-            <div class="panel-card p-6 space-y-4">
-                <div class="flex items-center gap-2">
-                    <i data-lucide="file-spreadsheets" class="w-5 h-5 text-amber-400"></i>
-                    <h2 class="text-base font-bold text-amber-400">Importar Archivo CSV de ManaBox</h2>
-                </div>
-
-                <form id="upload-form" class="space-y-4">
-                    <div>
-                        <label class="block text-xs text-zinc-400 mb-1">Seleccionar CSV</label>
-                        <input type="file" id="csv-file" accept=".csv" required
-                            class="w-full text-xs text-zinc-400 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-amber-500/10 file:text-amber-400 hover:file:bg-amber-500/20 border border-zinc-800 rounded-lg cursor-pointer bg-zinc-900">
-                    </div>
-                    <div>
-                        <label class="block text-xs text-zinc-400 mb-1">Nombre de Ubicación / Mazo</label>
-                        <input type="text" id="location-input" placeholder="Ej: Bulk General, Mazo Atraxa..." required
-                            class="w-full px-3 py-2 text-sm bg-zinc-900 border border-zinc-800 rounded-lg text-zinc-200 focus:outline-none focus:border-amber-500">
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <input type="checkbox" id="is-deck-checkbox"
-                            class="rounded bg-zinc-900 border-zinc-800 text-amber-500">
-                        <label for="is-deck-checkbox" class="text-xs text-zinc-300">Es un mazo montado (no bulk
-                            general)</label>
-                    </div>
-                    <button type="submit"
-                        class="w-full bg-amber-500 hover:bg-amber-600 text-black font-bold py-2.5 rounded-lg text-sm transition flex items-center justify-center gap-2">
-                        <i data-lucide="upload" class="w-4 h-4"></i>
-                        <span>Subir al Servidor</span>
-                    </button>
-                </form>
-                <div id="upload-status" class="mt-3 text-xs hidden"></div>
-            </div>
-        </section>
-
+        <div id="view-import" class="tab-content hidden">
+            {% include 'views/import.html' %}
+        </div>
     </main>
 
-    <!-- MODAL VENTANA FLOTANTE -->
-    <div id="card-modal" class="modal-backdrop hidden">
-        <div class="modal-content flex flex-col md:flex-row relative">
-
-            <div id="modal-bg-blur" class="modal-bg-blur"></div>
-
-            <button onclick="closeCardModal()"
-                class="absolute top-3 right-3 text-zinc-300 hover:text-white bg-black/80 backdrop-blur-md p-2 rounded-full z-30 border border-white/20 transition hover:scale-110">
-                <i data-lucide="x" class="w-4 h-4"></i>
-            </button>
-
-            <!-- Lado Izquierdo: Imagen -->
-            <div class="p-6 md:w-1/2 flex items-center justify-center bg-black/40 modal-body-wrapper">
-                <img id="modal-card-img" src=""
-                    class="w-full max-w-[280px] rounded-xl shadow-2xl object-cover aspect-[5/7] transform hover:scale-105 transition duration-300">
-            </div>
-
-            <!-- Lado Derecho: Ficha Técnica -->
-            <div
-                class="p-6 md:w-1/2 flex flex-col justify-between overflow-y-auto custom-scrollbar space-y-4 modal-body-wrapper">
-                <div>
-                    <div class="flex items-start justify-between gap-2 mb-1 pr-10">
-                        <div>
-                            <h2 id="modal-card-title" class="text-2xl font-black text-white tracking-tight"></h2>
-                            <p id="modal-card-translated-name" class="text-sm text-amber-400 font-medium italic"></p>
-                        </div>
-                        <div id="modal-mana-cost" class="flex gap-1 text-lg flex-shrink-0"></div>
-                    </div>
-
-                    <div class="flex flex-wrap items-center gap-2 my-3">
-                        <span id="modal-card-type" class="badge-pill text-zinc-300"></span>
-                        <span id="modal-card-rarity" class="badge-pill"></span>
-                    </div>
-
-                    <div
-                        class="flex items-center gap-2 text-xs text-zinc-300 mb-4 bg-black/40 p-2.5 rounded-xl border border-white/10 backdrop-blur-md">
-                        <i id="modal-set-icon" class="ms text-lg"></i>
-                        <span id="modal-set-info" class="font-medium"></span>
-                    </div>
-
-                    <div class="space-y-1.5">
-                        <h4 class="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">Efecto / Texto Oficial
-                        </h4>
-                        <div id="modal-card-text" class="modal-text-box">
-                            Cargando texto oficial...
-                        </div>
-                    </div>
-                </div>
-
-                <div class="space-y-3 pt-3 border-t border-white/10">
-                    <div class="price-widget">
-                        <div>
-                            <span class="text-[11px] text-zinc-400 font-semibold block uppercase tracking-wider">Precio
-                                Cardmarket</span>
-                            <span class="text-[10px] text-amber-500/80">Sincronizado en tiempo real</span>
-                        </div>
-                        <span id="modal-card-price" class="font-extrabold text-amber-400 text-lg"></span>
-                    </div>
-
-                    <div>
-                        <span class="text-xs text-zinc-400 font-semibold block mb-1">Ubicación en tu Colección:</span>
-                        <div id="modal-card-locations" class="space-y-1.5 text-xs"></div>
-                    </div>
-                </div>
-
-            </div>
-        </div>
-    </div>
-
     <script>
-        let activeRarities = [];
-        let activeColors = [];
-        let isCommanderMode = false;
-        let cardCache = [];
-        window.cardStore = {};
-
-        // Inicializar Lucide Icons
-        function renderIcons() {
-            if (window.lucide) {
-                lucide.createIcons();
-            }
-        }
-
-        function toggleFiltersDrawer() {
-            const drawer = document.getElementById('filters-drawer');
-            drawer.classList.toggle('hidden');
-        }
+        function renderIcons() { if (window.lucide) lucide.createIcons(); }
+        renderIcons();
 
         function switchTab(tabId) {
             document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
@@ -318,371 +68,10 @@
                 el.classList.remove('text-amber-400', 'bg-zinc-800/90', 'shadow-sm');
                 el.classList.add('text-zinc-400');
             });
-
             document.getElementById(tabId).classList.remove('hidden');
             document.getElementById(`nav-${tabId}`).classList.add('text-amber-400', 'bg-zinc-800/90', 'shadow-sm');
             document.getElementById(`nav-${tabId}`).classList.remove('text-zinc-400');
         }
-
-        async function updatePricesNow() {
-            const btn = document.getElementById('btn-update-prices');
-            btn.innerHTML = '<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i><span>Sincronizando...</span>';
-            btn.disabled = true;
-            renderIcons();
-
-            try {
-                await fetch('/api/update-prices', { method: 'POST' });
-                alert("Sincronización de precios iniciada en segundo plano.");
-            } catch (e) {
-                alert("Error al iniciar actualización.");
-            } finally {
-                btn.innerHTML = '<i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i><span>Sincronizar Cardmarket</span>';
-                btn.disabled = false;
-                renderIcons();
-            }
-        }
-
-        function toggleCommanderMode() {
-            isCommanderMode = !isCommanderMode;
-            const btn = document.getElementById('commander-toggle');
-            const dot = document.getElementById('commander-dot');
-
-            if (isCommanderMode) {
-                btn.classList.add('border-amber-500', 'bg-amber-500/10', 'text-amber-400');
-                dot.classList.add('bg-amber-400');
-            } else {
-                btn.classList.remove('border-amber-500', 'bg-amber-500/10', 'text-amber-400');
-                dot.classList.remove('bg-amber-400');
-            }
-
-            filterCurrentResults();
-        }
-
-        function toggleRarity(rarity) {
-            const btn = document.getElementById(`rarity-${rarity}`);
-            if (activeRarities.includes(rarity)) {
-                activeRarities = activeRarities.filter(r => r !== rarity);
-                btn.classList.remove('bg-amber-500/20', 'border-amber-500');
-            } else {
-                activeRarities.push(rarity);
-                btn.classList.add('bg-amber-500/20', 'border-amber-500');
-            }
-            triggerSearch();
-        }
-
-        function toggleColor(color) {
-            const btn = document.getElementById(`color-${color}`);
-            if (activeColors.includes(color)) {
-                activeColors = activeColors.filter(c => c !== color);
-                btn.classList.remove('border-amber-400', 'ring-2', 'ring-amber-400/50', 'opacity-100');
-                btn.classList.add('border-transparent', 'opacity-60');
-            } else {
-                activeColors.push(color);
-                btn.classList.add('border-amber-400', 'ring-2', 'ring-amber-400/50', 'opacity-100');
-                btn.classList.remove('border-transparent', 'opacity-60');
-            }
-            filterCurrentResults();
-        }
-
-        const searchInput = document.getElementById('search-input');
-        let debounceTimer;
-
-        searchInput.addEventListener('input', () => {
-            clearTimeout(debounceTimer);
-            debounceTimer = setTimeout(triggerSearch, 300);
-        });
-
-        function getScryfallImageUrl(id) {
-            if (!id || id.length < 2) return 'https://cards.scryfall.io/back.png';
-            const a = id.charAt(0);
-            const b = id.charAt(1);
-            return `https://cards.scryfall.io/normal/front/${a}/${b}/${id}.jpg`;
-        }
-
-        function formatManaAndText(text) {
-            if (!text) return '';
-            return text.replace(/\{([^}]+)\}/g, (match, symbol) => {
-                const cleanSym = symbol.toLowerCase().replace('/', '');
-                return `<i class="ms ms-${cleanSym} ms-cost ms-shadow"></i>`;
-            });
-        }
-
-        async function fetchBatchColors() {
-            const uniqueIds = [...new Set(cardCache.map(c => c.scryfall_id))].filter(Boolean);
-            if (uniqueIds.length === 0) return;
-
-            const chunks = [];
-            for (let i = 0; i < uniqueIds.length; i += 75) {
-                chunks.push(uniqueIds.slice(i, i + 75));
-            }
-
-            const colorMap = {};
-
-            for (const chunk of chunks) {
-                try {
-                    const identifiers = chunk.map(id => ({ id }));
-                    const res = await fetch('https://api.scryfall.com/cards/collection', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ identifiers })
-                    });
-
-                    if (res.ok) {
-                        const data = await res.json();
-                        (data.data || []).forEach(card => {
-                            if (card && card.id) {
-                                colorMap[card.id] = card.color_identity || card.colors || [];
-                            }
-                        });
-                    }
-                } catch (e) {
-                    console.error("Error fetching batch colors", e);
-                }
-            }
-
-            cardCache.forEach(card => {
-                card.colors = colorMap[card.scryfall_id] || [];
-            });
-        }
-
-        async function triggerSearch() {
-            const query = searchInput.value.trim();
-            const sortBy = document.getElementById('sort-select').value;
-            const spinner = document.getElementById('loading-spinner');
-
-            spinner.classList.remove('hidden');
-
-            let url = `/api/search?q=${encodeURIComponent(query)}&sort_by=${sortBy}`;
-            if (activeRarities.length > 0) {
-                url += `&rarity=${activeRarities.join(',')}`;
-            }
-
-            try {
-                const res = await fetch(url);
-                const data = await res.json();
-                cardCache = data.results || [];
-
-                await fetchBatchColors();
-                filterCurrentResults();
-            } catch (e) {
-                console.error("Error buscando cartas", e);
-            } finally {
-                spinner.classList.add('hidden');
-                renderIcons();
-            }
-        }
-
-        function filterCurrentResults() {
-            const grid = document.getElementById('results-grid');
-            const noResults = document.getElementById('no-results');
-
-            if (cardCache.length === 0) {
-                grid.innerHTML = '';
-                noResults.classList.remove('hidden');
-                return;
-            }
-
-            let filteredCards = cardCache;
-
-            if (activeColors.length > 0) {
-                filteredCards = cardCache.filter(card => {
-                    const cardColors = card.colors || [];
-                    const isColorlessCard = (cardColors.length === 0);
-
-                    if (isCommanderMode) {
-                        if (isColorlessCard) return activeColors.includes('C');
-                        return cardColors.every(cardColor => activeColors.includes(cardColor));
-                    }
-
-                    if (isColorlessCard) return activeColors.includes('C');
-
-                    const coloredSelections = activeColors.filter(c => c !== 'C');
-                    if (coloredSelections.length === 0) return false;
-
-                    return coloredSelections.some(selectedColor => cardColors.includes(selectedColor));
-                });
-            }
-
-            if (filteredCards.length === 0) {
-                grid.innerHTML = '';
-                noResults.classList.remove('hidden');
-                return;
-            }
-
-            noResults.classList.add('hidden');
-
-            const grouped = {};
-            filteredCards.forEach(item => {
-                if (!grouped[item.name]) grouped[item.name] = [];
-                grouped[item.name].push(item);
-            });
-
-            grid.innerHTML = '';
-            window.cardStore = {};
-
-            let index = 0;
-            Object.keys(grouped).forEach(cardName => {
-                const locations = grouped[cardName];
-                const card = locations[0];
-                const imageUrl = getScryfallImageUrl(card.scryfall_id);
-                const priceFormatted = card.purchase_price ? `${card.purchase_price}€` : '-';
-                const totalQty = locations.reduce((acc, l) => acc + (l.total_quantity || 1), 0);
-                const collectorNum = card.collector_number ? `#${card.collector_number}` : '';
-
-                const storeKey = `card_${index++}`;
-                window.cardStore[storeKey] = { card, locations };
-
-                const cardHtml = `
-                    <div onclick="openCardModalFromStore('${storeKey}')" 
-                        class="mtg-card-item group">
-                        
-                        <div class="mtg-card-img-wrapper">
-                            <img src="${imageUrl}" alt="" loading="lazy" class="mtg-card-img" onerror="this.onerror=null; this.src='https://cards.scryfall.io/back.png';">
-                        </div>
-
-                        <div class="py-1 px-1 flex items-center justify-between text-[11px] text-zinc-400 border-t border-white/5 mt-1 pt-1">
-                            <span class="bg-zinc-900/90 text-white font-bold text-[10px] px-1.5 py-0.5 rounded border border-white/10 font-mono">
-                                ${totalQty}x
-                            </span>
-
-                            <span class="flex items-center gap-1 font-bold tracking-wider text-zinc-300 group-hover:text-amber-400 transition">
-                                <i class="ms ms-${card.set_code.toLowerCase()} ms-shadow"></i>
-                                ${card.set_code.toUpperCase()} ${collectorNum}
-                            </span>
-
-                            <span class="bg-zinc-900/90 text-amber-400 font-bold text-[10px] px-1.5 py-0.5 rounded border border-amber-500/20 font-mono">
-                                ${priceFormatted}
-                            </span>
-                        </div>
-                    </div>
-                `;
-                grid.innerHTML += cardHtml;
-            });
-            renderIcons();
-        }
-
-        function openCardModalFromStore(storeKey) {
-            const data = window.cardStore[storeKey];
-            if (data) {
-                openCardModal(data.card.scryfall_id, data.card, data.locations);
-            }
-        }
-
-        async function openCardModal(scryfallId, card, locations) {
-            const modal = document.getElementById('card-modal');
-            const imgUrl = getScryfallImageUrl(scryfallId);
-
-            document.getElementById('modal-card-img').src = imgUrl;
-            document.getElementById('modal-bg-blur').style.backgroundImage = `url('${imgUrl}')`;
-            document.getElementById('modal-card-title').textContent = card.name;
-            document.getElementById('modal-set-info').textContent = `${card.set_name} (${card.set_code.toUpperCase()}) ${card.collector_number ? '#' + card.collector_number : ''}`;
-            document.getElementById('modal-set-icon').className = `ms ms-${card.set_code.toLowerCase()} text-[18px]`;
-            document.getElementById('modal-card-price').textContent = card.purchase_price ? `${card.purchase_price} €` : 'N/A';
-
-            const rarityElem = document.getElementById('modal-card-rarity');
-            const r = (card.rarity || 'common').toLowerCase();
-            const rarityNames = { common: 'Común', uncommon: 'Infrecuente', rare: 'Rara', mythic: 'Mítica' };
-            rarityElem.className = `badge-pill badge-${r}`;
-            rarityElem.textContent = rarityNames[r] || 'Común';
-
-            const locContainer = document.getElementById('modal-card-locations');
-            locContainer.innerHTML = locations.map(l => `
-                <div class="flex justify-between items-center py-1.5 px-3 rounded-xl ${l.is_deck ? 'bg-amber-500/10 text-amber-300 border-amber-500/20' : 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20'} border backdrop-blur-md">
-                    <span class="font-medium">${l.is_deck ? '⚔️ ' : '📦 '}${l.location}</span>
-                    <span class="font-bold bg-black/40 px-2 py-0.5 rounded-md font-mono">${l.total_quantity}x</span>
-                </div>
-            `).join('');
-
-            modal.classList.remove('hidden');
-            renderIcons();
-
-            const textContainer = document.getElementById('modal-card-text');
-            const translatedNameElem = document.getElementById('modal-card-translated-name');
-            const typeElem = document.getElementById('modal-card-type');
-            const manaElem = document.getElementById('modal-mana-cost');
-
-            textContainer.innerHTML = '<span class="text-amber-400 animate-pulse">Obteniendo texto oficial en español...</span>';
-
-            try {
-                const resEn = await fetch(`https://api.scryfall.com/cards/${scryfallId}`);
-                const dataEn = await resEn.json();
-
-                typeElem.textContent = dataEn.type_line || 'Carta de Magic';
-                manaElem.innerHTML = formatManaAndText(dataEn.mana_cost || '');
-
-                let textEs = null;
-                let nameEs = null;
-
-                if (dataEn.oracle_id) {
-                    const searchRes = await fetch(`https://api.scryfall.com/cards/search?q=oracle_id:${dataEn.oracle_id}+lang:es`);
-                    if (searchRes.ok) {
-                        const searchData = await searchRes.json();
-                        if (searchData.data && searchData.data.length > 0) {
-                            const cardEs = searchData.data[0];
-                            nameEs = cardEs.printed_name || cardEs.name;
-                            textEs = cardEs.printed_text || cardEs.oracle_text;
-                        }
-                    }
-                }
-
-                if (textEs) {
-                    translatedNameElem.textContent = `🇪🇸 ${nameEs}`;
-                    textContainer.innerHTML = formatManaAndText(textEs).replace(/\n/g, '<br>');
-                } else {
-                    translatedNameElem.textContent = '';
-                    textContainer.innerHTML = formatManaAndText(dataEn.oracle_text || 'Sin texto de regla.').replace(/\n/g, '<br>');
-                }
-
-            } catch (e) {
-                textContainer.textContent = 'Sin texto disponible.';
-            }
-        }
-
-        function closeCardModal() {
-            document.getElementById('card-modal').classList.add('hidden');
-        }
-
-        document.getElementById('upload-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const statusDiv = document.getElementById('upload-status');
-            const formData = new FormData();
-
-            formData.append('file', document.getElementById('csv-file').files[0]);
-            formData.append('location', document.getElementById('location-input').value);
-            formData.append('is_deck', document.getElementById('is-deck-checkbox').checked);
-
-            statusDiv.classList.remove('hidden');
-            statusDiv.innerHTML = '<span class="text-amber-400">Subiendo e importando registros...</span>';
-
-            try {
-                const res = await fetch('/api/upload', { method: 'POST', body: formData });
-                const result = await res.json();
-
-                if (res.ok) {
-                    statusDiv.innerHTML = `<span class="text-emerald-400">✅ ${result.message}</span>`;
-                    loadStats();
-                    triggerSearch();
-                } else {
-                    statusDiv.innerHTML = `<span class="text-rose-400">❌ Error: ${result.message}</span>`;
-                }
-            } catch (err) {
-                statusDiv.innerHTML = `<span class="text-rose-400">❌ Error al subir archivo.</span>`;
-            }
-        });
-
-        async function loadStats() {
-            try {
-                const res = await fetch('/api/stats');
-                const data = await res.json();
-                document.getElementById('stat-unique').textContent = data.unique_cards || 0;
-                document.getElementById('stat-total').textContent = data.total_cards || 0;
-                document.getElementById('stat-locations').textContent = data.total_locations || 0;
-            } catch (e) { }
-        }
-
-        loadStats();
-        triggerSearch();
-        renderIcons();
     </script>
 </body>
 
