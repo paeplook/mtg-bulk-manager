@@ -1,6 +1,5 @@
 /* ==========================================================================
    PALETA DE COLORES Y VARIABLES GLOBALES
-   Modifica estos valores para cambiar el tema de toda la web en segundos
    ========================================================================== */
 :root {
     --bg-dark: #09090b;
@@ -9,9 +8,11 @@
     /* Fondo del menú superior */
     --bg-card: #141419;
     /* Fondo de tarjetas y paneles */
+    --bg-modal: #16161e;
+    /* Fondo del modal */
     --bg-hover: #1e1e24;
     /* Fondo al pasar el ratón */
-    --border-color: #27272a;
+    --border-color: rgba(255, 255, 255, 0.08);
     /* Bordes discretos */
     --border-accent: #f59e0b;
     /* Borde ámbar para destacados */
@@ -23,7 +24,7 @@
     /* Color dorado para precios/highlights */
     --accent-green: #34d399;
     /* Color verde para colecciones */
-    --radius-lg: 16px;
+    --radius-lg: 20px;
     --radius-md: 12px;
     --radius-sm: 8px;
     --transition-fast: 0.2s ease;
@@ -35,25 +36,21 @@ body {
     font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
 
-/* ==========================================================================
-   SCROLLBAR PERSONALIZADO
-   ========================================================================== */
+/* Scrollbar Personalizado */
 .custom-scrollbar::-webkit-scrollbar {
     width: 6px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {
-    background: var(--bg-card);
+    background: rgba(0, 0, 0, 0.2);
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-    background: var(--border-color);
+    background: rgba(255, 255, 255, 0.15);
     border-radius: 4px;
 }
 
-/* ==========================================================================
-   HEADER Y CONTENEDORES
-   ========================================================================== */
+/* Header */
 .app-header {
     background-color: var(--bg-header);
     border-bottom: 1px solid var(--border-color);
@@ -65,21 +62,20 @@ body {
     border-radius: var(--radius-lg);
 }
 
-/* ==========================================================================
-   TARJETAS DE CARTAS (ESTILO BORDERLESS COMPACTO)
-   ========================================================================== */
+/* Tarjetas de Cartas */
 .mtg-card-item {
     background-color: var(--bg-card);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-md);
     padding: 4px;
-    transition: transform var(--transition-fast), border-color var(--transition-fast);
+    transition: transform var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast);
     cursor: pointer;
 }
 
 .mtg-card-item:hover {
-    transform: translateY(-2px);
-    border-color: var(--border-accent);
+    transform: translateY(-3px);
+    border-color: rgba(245, 158, 11, 0.5);
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
 }
 
 .mtg-card-img-wrapper {
@@ -97,13 +93,12 @@ body {
     border-radius: var(--radius-sm);
 }
 
-/* Píldoras e insignias sobre la imagen */
 .card-badge-qty {
     position: absolute;
     bottom: 6px;
     left: 6px;
     background: rgba(0, 0, 0, 0.85);
-    backdrop-filter: blur(4px);
+    backdrop-filter: blur(6px);
     color: #ffffff;
     font-weight: 700;
     font-size: 11px;
@@ -117,7 +112,7 @@ body {
     bottom: 6px;
     right: 6px;
     background: rgba(0, 0, 0, 0.85);
-    backdrop-filter: blur(4px);
+    backdrop-filter: blur(6px);
     color: var(--accent-amber);
     font-weight: 700;
     font-size: 10px;
@@ -137,13 +132,13 @@ body {
 }
 
 /* ==========================================================================
-   VENTANA MODAL FLOTANTE
+   VENTANA MODAL REDISEÑADA (ESTILO MANABOX PREMUM)
    ========================================================================== */
 .modal-backdrop {
     position: fixed;
     inset: 0;
     background-color: rgba(0, 0, 0, 0.85);
-    backdrop-filter: blur(6px);
+    backdrop-filter: blur(8px);
     z-index: 50;
     display: flex;
     align-items: center;
@@ -152,22 +147,90 @@ body {
 }
 
 .modal-content {
-    background-color: var(--bg-card);
-    border: 1px solid var(--border-color);
+    background-color: var(--bg-modal);
+    border: 1px solid rgba(255, 255, 255, 0.12);
     border-radius: var(--radius-lg);
-    max-width: 800px;
+    max-width: 860px;
     width: 100%;
     max-height: 90vh;
     overflow: hidden;
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+    box-shadow: 0 30px 60px -12px rgba(0, 0, 0, 0.9);
+    position: relative;
 }
 
+/* Fondo Borroso Art de la Carta */
+.modal-bg-blur {
+    position: absolute;
+    inset: 0;
+    background-size: cover;
+    background-position: center;
+    filter: blur(50px) brightness(0.25);
+    opacity: 0.6;
+    pointer-events: none;
+    z-index: 0;
+}
+
+.modal-body-wrapper {
+    position: relative;
+    z-index: 1;
+}
+
+/* Píldoras de Rareza y Tipos */
+.badge-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(4px);
+}
+
+.badge-rare {
+    color: #f59e0b;
+    border-color: rgba(245, 158, 11, 0.3);
+    background: rgba(245, 158, 11, 0.1);
+}
+
+.badge-mythic {
+    color: #f97316;
+    border-color: rgba(249, 115, 22, 0.3);
+    background: rgba(249, 115, 22, 0.1);
+}
+
+.badge-uncommon {
+    color: #cbd5e1;
+    border-color: rgba(203, 213, 225, 0.3);
+    background: rgba(203, 213, 225, 0.1);
+}
+
+.badge-common {
+    color: #94a3b8;
+    border-color: rgba(148, 163, 184, 0.2);
+}
+
+/* Caja de Texto de Reglas Estilizada */
 .modal-text-box {
-    background-color: rgba(0, 0, 0, 0.4);
-    border: 1px solid var(--border-color);
+    background: rgba(10, 10, 15, 0.65);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: var(--radius-md);
-    padding: 12px;
-    color: var(--text-primary);
-    font-size: 12px;
-    line-height: 1.6;
+    padding: 14px;
+    color: #e4e4e7;
+    font-size: 13px;
+    line-height: 1.65;
+}
+
+/* Widget de Precio Cardmarket */
+.price-widget {
+    background: linear-gradient(135deg, rgba(251, 191, 36, 0.08) 0%, rgba(18, 18, 22, 0.6) 100%);
+    border: 1px solid rgba(251, 191, 36, 0.25);
+    border-radius: var(--radius-md);
+    padding: 12px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
