@@ -18,25 +18,20 @@ templates = Jinja2Templates(directory="templates")
 database_url = get_database_url()
 engine = create_engine(database_url)
 
-# Funcionalidad: Actualizador de Precios de Cardmarket
 def update_cardmarket_prices():
-    """Consulta Scryfall/Cardmarket para actualizar los precios en Euros de la BD."""
     print("🔄 [CRON MONDAY] Iniciando actualización semanal de precios de Cardmarket...")
     try:
         with engine.connect() as conn:
-            # Obtenemos los Scryfall IDs únicos presentes en el inventario
             query = text("SELECT DISTINCT scryfall_id FROM cards_inventory WHERE scryfall_id IS NOT NULL")
             unique_ids = conn.execute(query).scalars().all()
 
         updated_count = 0
         for scryfall_id in unique_ids:
             try:
-                # Consulta a Scryfall (Precios Cardmarket EUR)
                 res = requests.get(f"https://api.scryfall.com/cards/{scryfall_id}", timeout=5)
                 if res.status_code == 200:
                     data = res.json()
                     prices = data.get("prices", {})
-                    # Prioriza precio normal en EUR, o foil si no hay normal
                     cmarket_price = prices.get("eur") or prices.get("eur_foil")
 
                     if cmarket_price:
@@ -47,17 +42,14 @@ def update_cardmarket_prices():
                                 {"price": cmarket_price, "id": scryfall_id}
                             )
                         updated_count += 1
-                
-                # Respetamos el rate limit de Scryfall (100ms entre peticiones)
                 asyncio.run(asyncio.sleep(0.1))
-            except Exception as e:
+            except Exception:
                 continue
 
         print(f"✅ [CRON MONDAY] Precios de Cardmarket actualizados con éxito en {updated_count} cartas.")
     except Exception as e:
         print(f"❌ Error durante la actualización de precios: {e}")
 
-# Scheduler: Se ejecuta todos los LUNES a las 00:00 (day_of_week='mon', hour=0, minute=0)
 scheduler = BackgroundScheduler()
 scheduler.add_job(update_cardmarket_prices, 'cron', day_of_week='mon', hour=0, minute=0)
 
@@ -74,13 +66,11 @@ def shutdown_event():
 def home(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
-# API para forzar la actualización manual de precios si no quieres esperar al lunes
 @app.post("/api/update-prices")
 def force_price_update(background_tasks: BackgroundTasks):
     background_tasks.add_task(update_cardmarket_prices)
     return {"status": "success", "message": "Actualización de precios de Cardmarket iniciada en segundo plano."}
 
-# API de Búsqueda
 @app.get("/api/search")
 def search_cards(
     q: Optional[str] = Query(""),
@@ -94,6 +84,7 @@ def search_cards(
             name,
             set_code,
             set_name,
+            collector_number,
             rarity,
             scryfall_id,
             location,
@@ -119,7 +110,7 @@ def search_cards(
         sql_query += " AND location = :location"
         params["location"] = location
 
-    sql_query += " GROUP BY name, set_code, set_name, rarity, scryfall_id, location, is_deck "
+    sql_query += " GROUP BY name, set_code, set_name, collector_number, rarity, scryfall_id, location, is_deck "
 
     if sort_by == "name_desc":
         sql_query += " ORDER BY name DESC "

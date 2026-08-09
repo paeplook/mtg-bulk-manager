@@ -9,7 +9,7 @@
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
 
-    <!-- Mana CSS (Símbolos Oficiales de MTG y Ediciones) -->
+    <!-- Mana CSS (Símbolos Oficiales de MTG) -->
     <link href="https://cdn.jsdelivr.net/npm/mana-font@1.4.1/css/mana.min.css" rel="stylesheet" type="text/css" />
 
     <script>
@@ -90,7 +90,6 @@
         <!-- PESTAÑA 1: COLECCIÓN -->
         <section id="search-tab" class="tab-content space-y-6">
 
-            <!-- Panel de Búsqueda y Filtros Compacto -->
             <div class="bg-mtgCard border border-gray-800/80 rounded-2xl p-4 space-y-4 shadow-xl">
 
                 <div class="flex flex-col md:flex-row gap-3">
@@ -167,10 +166,10 @@
             </div>
 
             <div id="loading-spinner" class="hidden text-center py-8 text-amber-400 text-sm">
-                <span class="animate-spin inline-block mr-2">⏳</span> Cargar colección...
+                <span class="animate-spin inline-block mr-2">⏳</span> Cargando colección...
             </div>
 
-            <!-- PARRILLA DE CARTAS COMPACTA (Estilo ManaBox) -->
+            <!-- PARRILLA DE CARTAS COMPACTA -->
             <div id="results-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
                 <!-- Se llena con JS -->
             </div>
@@ -217,38 +216,34 @@
         <div
             class="bg-mtgCard border border-gray-800 rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden shadow-2xl flex flex-col md:flex-row relative">
 
-            <!-- Botón Cerrar X -->
             <button onclick="closeCardModal()"
                 class="absolute top-3 right-3 text-gray-400 hover:text-white bg-gray-900/80 p-2 rounded-full z-10">
                 ✕
             </button>
 
-            <!-- Lado Izquierdo: Imagen de la Carta -->
+            <!-- Lado Izquierdo: Imagen -->
             <div class="p-6 md:w-1/2 flex items-center justify-center bg-gray-950/50">
                 <img id="modal-card-img" src=""
                     class="w-full max-w-[280px] rounded-xl shadow-2xl object-cover aspect-[5/7]">
             </div>
 
-            <!-- Lado Derecho: Detalles de la Carta -->
+            <!-- Lado Derecho: Detalles -->
             <div class="p-6 md:w-1/2 flex flex-col justify-between overflow-y-auto custom-scrollbar space-y-4">
                 <div>
-                    <!-- Nombre Original e Inglés/Español -->
                     <div class="flex items-start justify-between gap-2 mb-1">
                         <h2 id="modal-card-title" class="text-xl font-bold text-gray-100"></h2>
-                        <span id="modal-mana-cost" class="text-lg"></span>
                     </div>
                     <p id="modal-card-translated-name" class="text-sm text-amber-400 italic mb-2"></p>
 
-                    <!-- Edición y Set Code -->
                     <div
                         class="flex items-center gap-2 text-xs text-gray-400 mb-4 bg-gray-900/80 p-2 rounded-lg border border-gray-800">
                         <i id="modal-set-icon" class="ms text-base"></i>
                         <span id="modal-set-info"></span>
                     </div>
 
-                    <!-- Texto de la Carta Traducido al Español -->
                     <div class="space-y-2">
-                        <h4 class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Efecto / Texto</h4>
+                        <h4 class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Efecto / Texto
+                            (Español)</h4>
                         <div id="modal-card-text"
                             class="text-xs bg-gray-900/60 p-3 rounded-xl text-gray-200 border border-gray-800 leading-relaxed space-y-1">
                             Cargando traducción oficial...
@@ -256,7 +251,6 @@
                     </div>
                 </div>
 
-                <!-- Ubicaciones y Precio -->
                 <div class="space-y-3 pt-3 border-t border-gray-800">
                     <div class="flex justify-between items-center text-xs">
                         <span class="text-gray-400">Precio estimado Cardmarket:</span>
@@ -475,7 +469,9 @@
                 const priceFormatted = card.purchase_price ? `${card.purchase_price}€` : '-';
                 const totalQty = locations.reduce((acc, l) => acc + (l.total_quantity || 1), 0);
 
-                // Tarjeta Ultra Fina / Estilo ManaBox Screenshot
+                // Formato del código de edición + número (#258)
+                const collectorNum = card.collector_number ? `#${card.collector_number}` : '';
+
                 const cardHtml = `
                     <div onclick="openCardModal('${card.scryfall_id}', '${encodeURIComponent(JSON.stringify(locations))}')" 
                         class="bg-mtgCard border border-gray-800/80 hover:border-amber-500/60 rounded-xl p-1 flex flex-col justify-between cursor-pointer transition shadow-md hover:scale-[1.02] group">
@@ -483,21 +479,19 @@
                         <div class="relative overflow-hidden rounded-lg bg-gray-900 aspect-[5/7]">
                             <img src="${imageUrl}" alt="${cardName}" loading="lazy" class="w-full h-full object-cover rounded-lg">
                             
-                            <!-- Cantidad Abajo Izquierda -->
                             <span class="absolute bottom-1 left-1 bg-black/80 text-white font-bold text-[11px] px-1.5 py-0.2 rounded-md border border-white/10">
                                 ${totalQty}
                             </span>
 
-                            <!-- Precio Abajo Derecha -->
                             <span class="absolute bottom-1 right-1 bg-black/80 text-amber-400 font-bold text-[10px] px-1.5 py-0.2 rounded-md border border-amber-500/20">
                                 ${priceFormatted}
                             </span>
                         </div>
 
-                        <!-- Pie de Foto: Solo Logo / Código de Colección -->
+                        <!-- Pie de Foto: Logo Edición + CÓDIGO #NÚMERO (ej: LCI #258) -->
                         <div class="py-1 px-1 flex items-center justify-center gap-1.5 text-[11px] text-gray-400 group-hover:text-amber-400 transition">
                             <i class="ms ms-${card.set_code.toLowerCase()} ms-shadow"></i>
-                            <span class="font-bold tracking-wider">${card.set_code.toUpperCase()}</span>
+                            <span class="font-bold tracking-wider">${card.set_code.toUpperCase()} ${collectorNum}</span>
                         </div>
                     </div>
                 `;
@@ -505,7 +499,7 @@
             });
         }
 
-        // Abrir Ventana Flotante con Datos Oficiales en Español
+        // Búsqueda traducida garantizada en español
         async function openCardModal(scryfallId, locationsJson) {
             const locations = JSON.parse(decodeURIComponent(locationsJson));
             const card = locations[0];
@@ -513,11 +507,10 @@
 
             document.getElementById('modal-card-img').src = `https://api.scryfall.com/cards/${scryfallId}?format=image`;
             document.getElementById('modal-card-title').textContent = card.name;
-            document.getElementById('modal-set-info').textContent = `${card.set_name} (${card.set_code.toUpperCase()})`;
+            document.getElementById('modal-set-info').textContent = `${card.set_name} (${card.set_code.toUpperCase()}) ${card.collector_number ? '#' + card.collector_number : ''}`;
             document.getElementById('modal-set-icon').className = `ms ms-${card.set_code.toLowerCase()} text-base`;
             document.getElementById('modal-card-price').textContent = card.purchase_price ? `${card.purchase_price} €` : 'N/A';
 
-            // Cargar Ubicaciones
             const locContainer = document.getElementById('modal-card-locations');
             locContainer.innerHTML = locations.map(l => `
                 <div class="flex justify-between items-center py-1 px-2.5 rounded-lg ${l.is_deck ? 'bg-amber-500/10 text-amber-300' : 'bg-emerald-500/10 text-emerald-300'} border border-white/5">
@@ -528,34 +521,35 @@
 
             modal.classList.remove('hidden');
 
-            // Consultar a Scryfall el texto oficial traducido a español (/es)
             const textContainer = document.getElementById('modal-card-text');
             const translatedNameElem = document.getElementById('modal-card-translated-name');
-            textContainer.innerHTML = '<span class="text-amber-400">Buscando traducción oficial en español...</span>';
+            textContainer.innerHTML = '<span class="text-amber-400">Obteniendo texto oficial en español...</span>';
 
             try {
-                // Buscamos la versión en español de esa carta
-                const res = await fetch(`https://api.scryfall.com/cards/${card.set_code.toLowerCase()}/${card.scryfall_id.split('-')[0]}/es`);
+                // Consultamos a Scryfall buscando exactamente la carta en idioma español (lang:es)
+                const searchRes = await fetch(`https://api.scryfall.com/cards/search?q=!"${encodeURIComponent(card.name)}"+lang:es`);
 
-                let textEs = '';
-                let nameEs = '';
+                if (searchRes.ok) {
+                    const searchData = await searchRes.json();
+                    if (searchData.data && searchData.data.length > 0) {
+                        const cardEs = searchData.data[0];
+                        const nameEs = cardEs.printed_name || cardEs.name;
+                        const textEs = cardEs.printed_text || cardEs.oracle_text || 'Sin texto de regla.';
 
-                if (res.ok) {
-                    const dataEs = await res.json();
-                    nameEs = dataEs.printed_name || dataEs.name;
-                    textEs = dataEs.printed_text || dataEs.oracle_text || 'Sin texto de regla.';
-                } else {
-                    // Si no tiene traducción en español oficial en Scryfall, mostramos el texto inglés
-                    const resEn = await fetch(`https://api.scryfall.com/cards/${scryfallId}`);
-                    const dataEn = await resEn.json();
-                    nameEs = dataEn.name;
-                    textEs = dataEn.oracle_text || 'Sin texto de regla.';
+                        translatedNameElem.textContent = `🇪🇸 ${nameEs}`;
+                        textContainer.innerHTML = textEs.replace(/\n/g, '<br>');
+                        return;
+                    }
                 }
 
-                translatedNameElem.textContent = nameEs !== card.name ? `🇪🇸 ${nameEs}` : '';
-                textContainer.innerHTML = textEs.replace(/\n/g, '<br>');
+                // Si no existe carta en idioma español, traemos el texto en inglés oficial
+                const resEn = await fetch(`https://api.scryfall.com/cards/${scryfallId}`);
+                const dataEn = await resEn.json();
+                translatedNameElem.textContent = '';
+                textContainer.innerHTML = (dataEn.oracle_text || 'Sin texto de regla.').replace(/\n/g, '<br>');
+
             } catch (e) {
-                textContainer.textContent = 'No se pudo cargar la traducción.';
+                textContainer.textContent = 'No se pudo obtener el texto.';
             }
         }
 
@@ -563,7 +557,6 @@
             document.getElementById('card-modal').classList.add('hidden');
         }
 
-        // Subida de Archivo CSV
         document.getElementById('upload-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             const statusDiv = document.getElementById('upload-status');
