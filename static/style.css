@@ -4,13 +4,13 @@
 :root {
     --bg-dark: #09090b;
     /* Fondo OLED ultra oscuro */
-    --bg-header: #121215;
+    --bg-header: #111115;
     /* Fondo del menú superior */
-    --bg-card: #141419;
+    --bg-card: #15151a;
     /* Fondo de tarjetas y paneles */
-    --bg-modal: #16161e;
+    --bg-modal: #181820;
     /* Fondo del modal */
-    --bg-hover: #1e1e24;
+    --bg-hover: #1f1f28;
     /* Fondo al pasar el ratón */
     --border-color: rgba(255, 255, 255, 0.08);
     /* Bordes discretos */
@@ -24,16 +24,17 @@
     /* Color dorado para precios/highlights */
     --accent-green: #34d399;
     /* Color verde para colecciones */
-    --radius-lg: 20px;
-    --radius-md: 12px;
-    --radius-sm: 8px;
-    --transition-fast: 0.2s ease;
+    --radius-lg: 16px;
+    --radius-md: 10px;
+    --radius-sm: 6px;
+    --transition-fast: 0.15s ease;
 }
 
 body {
     background-color: var(--bg-dark);
     color: var(--text-primary);
     font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
 }
 
 /* Scrollbar Personalizado */
@@ -50,12 +51,14 @@ body {
     border-radius: 4px;
 }
 
-/* Header */
+/* Header Estilizado Pro */
 .app-header {
     background-color: var(--bg-header);
     border-bottom: 1px solid var(--border-color);
+    backdrop-filter: blur(12px);
 }
 
+/* Paneles */
 .panel-card {
     background-color: var(--bg-card);
     border: 1px solid var(--border-color);
@@ -73,9 +76,9 @@ body {
 }
 
 .mtg-card-item:hover {
-    transform: translateY(-3px);
-    border-color: rgba(245, 158, 11, 0.5);
-    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+    transform: translateY(-2px);
+    border-color: rgba(245, 158, 11, 0.4);
+    box-shadow: 0 10px 20px -5px rgba(0, 0, 0, 0.6);
 }
 
 .mtg-card-img-wrapper {
@@ -93,47 +96,16 @@ body {
     border-radius: var(--radius-sm);
 }
 
-.card-badge-qty {
-    position: absolute;
-    bottom: 6px;
-    left: 6px;
-    background: rgba(0, 0, 0, 0.85);
-    backdrop-filter: blur(6px);
-    color: #ffffff;
-    font-weight: 700;
-    font-size: 11px;
-    padding: 2px 6px;
-    border-radius: 6px;
-    border: 1px solid rgba(255, 255, 255, 0.15);
-}
-
-.card-badge-price {
-    position: absolute;
-    bottom: 6px;
-    right: 6px;
-    background: rgba(0, 0, 0, 0.85);
-    backdrop-filter: blur(6px);
-    color: var(--accent-amber);
-    font-weight: 700;
-    font-size: 10px;
-    padding: 2px 6px;
-    border-radius: 6px;
-    border: 1px solid rgba(251, 191, 36, 0.3);
-}
-
 .card-footer-info {
     padding: 6px 2px 2px 2px;
     display: flex;
     align-items: center;
-    justify-content: center;
-    gap: 6px;
+    justify-content: space-between;
     font-size: 11px;
     color: var(--text-muted);
 }
 
-/* ==========================================================================
-   VENTANA MODAL REDISEÑADA (ESTILO MANABOX PREMUM)
-   ========================================================================== */
+/* Modal Ventana Flotante */
 .modal-backdrop {
     position: fixed;
     inset: 0;
@@ -158,7 +130,6 @@ body {
     position: relative;
 }
 
-/* Fondo Borroso Art de la Carta */
 .modal-bg-blur {
     position: absolute;
     inset: 0;
@@ -175,7 +146,6 @@ body {
     z-index: 1;
 }
 
-/* Píldoras de Rareza y Tipos */
 .badge-pill {
     display: inline-flex;
     align-items: center;
@@ -186,7 +156,6 @@ body {
     font-weight: 600;
     background: rgba(255, 255, 255, 0.06);
     border: 1px solid rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(4px);
 }
 
 .badge-rare {
@@ -212,7 +181,6 @@ body {
     border-color: rgba(148, 163, 184, 0.2);
 }
 
-/* Caja de Texto de Reglas Estilizada */
 .modal-text-box {
     background: rgba(10, 10, 15, 0.65);
     backdrop-filter: blur(10px);
@@ -224,7 +192,6 @@ body {
     line-height: 1.65;
 }
 
-/* Widget de Precio Cardmarket */
 .price-widget {
     background: linear-gradient(135deg, rgba(251, 191, 36, 0.08) 0%, rgba(18, 18, 22, 0.6) 100%);
     border: 1px solid rgba(251, 191, 36, 0.25);
