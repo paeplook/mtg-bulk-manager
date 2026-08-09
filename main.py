@@ -7,12 +7,18 @@ import pandas as pd
 from fastapi import FastAPI, Query, Request, UploadFile, File, Form, BackgroundTasks
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import create_engine, text
 from apscheduler.schedulers.background import BackgroundScheduler
 
 from init_db import init_db, get_database_url, CardInventory
 
 app = FastAPI(title="MTG Collection Suite")
+
+# Servir archivos estáticos (CSS, JS, imágenes)
+os.makedirs("static", exist_ok=True)
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
 templates = Jinja2Templates(directory="templates")
 
 database_url = get_database_url()
