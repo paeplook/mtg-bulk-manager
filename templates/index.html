@@ -71,7 +71,7 @@
         </div>
     </main>
 
-    <!-- MOTOR JAVASCRIPT GLOBAL -->
+    <!-- MOTOR JAVASCRIPT GLOBAL SEGURO -->
     <script>
         let activeRarities = [];
         let activeColors = [];
@@ -79,7 +79,9 @@
         let cardCache = [];
         window.cardStore = {};
 
-        function renderIcons() { if (window.lucide) lucide.createIcons(); }
+        function renderIcons() {
+            if (window.lucide) lucide.createIcons();
+        }
 
         function switchTab(tabId) {
             document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
@@ -110,7 +112,7 @@
             renderIcons();
             try {
                 await fetch('/api/update-prices', { method: 'POST' });
-                alert("Sincronización de precios iniciada.");
+                alert("Sincronización iniciada.");
             } catch (e) { } finally {
                 btn.innerHTML = '<i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Sincronizar Cardmarket';
                 btn.disabled = false;
@@ -118,52 +120,21 @@
             }
         }
 
-        function toggleFiltersDrawer() { document.getElementById('filters-drawer').classList.toggle('hidden'); }
-        function toggleCommanderMode() {
-            isCommanderMode = !isCommanderMode;
-            const btn = document.getElementById('commander-toggle');
-            const dot = document.getElementById('commander-dot');
-            if (isCommanderMode) {
-                btn.classList.add('border-amber-500', 'bg-amber-500/10', 'text-amber-400');
-                dot.classList.add('bg-amber-400');
-            } else {
-                btn.classList.remove('border-amber-500', 'bg-amber-500/10', 'text-amber-400');
-                dot.classList.remove('bg-amber-400');
-            }
-            filterCurrentResults();
+        function toggleFiltersDrawer() {
+            const drawer = document.getElementById('filters-drawer');
+            if (drawer) drawer.classList.toggle('hidden');
         }
+
         function toggleRarity(rarity) {
             const btn = document.getElementById(`rarity-${rarity}`);
             if (activeRarities.includes(rarity)) {
                 activeRarities = activeRarities.filter(r => r !== rarity);
-                btn.classList.remove('bg-amber-500/20', 'border-amber-500');
+                if (btn) btn.classList.remove('bg-amber-500/20', 'border-amber-500');
             } else {
                 activeRarities.push(rarity);
-                btn.classList.add('bg-amber-500/20', 'border-amber-500');
+                if (btn) btn.classList.add('bg-amber-500/20', 'border-amber-500');
             }
             triggerSearch();
-        }
-        function toggleColor(color) {
-            const btn = document.getElementById(`color-${color}`);
-            if (activeColors.includes(color)) {
-                activeColors = activeColors.filter(c => c !== color);
-                btn.classList.remove('border-amber-400', 'ring-2', 'ring-amber-400/50', 'opacity-100');
-                btn.classList.add('border-transparent', 'opacity-60');
-            } else {
-                activeColors.push(color);
-                btn.classList.add('border-amber-400', 'ring-2', 'ring-amber-400/50', 'opacity-100');
-                btn.classList.remove('border-transparent', 'opacity-60');
-            }
-            filterCurrentResults();
-        }
-
-        const searchInput = document.getElementById('search-input');
-        let debounceTimer;
-        if (searchInput) {
-            searchInput.addEventListener('input', () => {
-                clearTimeout(debounceTimer);
-                debounceTimer = setTimeout(triggerSearch, 300);
-            });
         }
 
         function getScryfallImageUrl(id) {
@@ -171,19 +142,14 @@
             return `https://cards.scryfall.io/normal/front/${id.charAt(0)}/${id.charAt(1)}/${id}.jpg`;
         }
 
-        function formatManaAndText(text) {
-            if (!text) return '';
-            return text.replace(/\{([^}]+)\}/g, (match, symbol) => {
-                const cleanSym = symbol.toLowerCase().replace('/', '');
-                return `<i class="ms ms-${cleanSym} ms-cost ms-shadow"></i>`;
-            });
-        }
-
-        // --- BUSCADOR ULTRA RÁPIDO Y LIGERO ---
+        // Búsqueda principal ligera
         async function triggerSearch() {
-            const q = document.getElementById('search-input') ? document.getElementById('search-input').value.trim() : "";
-            const sortBy = document.getElementById('sort-select') ? document.getElementById('sort-select').value : "name_asc";
+            const searchInput = document.getElementById('search-input');
+            const sortSelect = document.getElementById('sort-select');
             const spinner = document.getElementById('loading-spinner');
+
+            const q = searchInput ? searchInput.value.trim() : "";
+            const sortBy = sortSelect ? sortSelect.value : "name_asc";
 
             if (spinner) spinner.classList.remove('hidden');
 
@@ -194,16 +160,16 @@
                 const res = await fetch(url);
                 const data = await res.json();
                 cardCache = data.results || [];
-                filterCurrentResults();
+                renderGrid();
             } catch (e) {
-                console.error("Error en búsqueda:", e);
+                console.error("Error buscando cartas:", e);
             } finally {
                 if (spinner) spinner.classList.add('hidden');
                 renderIcons();
             }
         }
 
-        function filterCurrentResults() {
+        function renderGrid() {
             const grid = document.getElementById('results-grid');
             const noResults = document.getElementById('no-results');
             if (!grid) return;
@@ -261,6 +227,7 @@
 
         async function openCardModal(scryfallId, card, locations) {
             const modal = document.getElementById('card-modal');
+            if (!modal) return;
             const imgUrl = getScryfallImageUrl(scryfallId);
 
             document.getElementById('modal-card-img').src = imgUrl;
@@ -273,8 +240,10 @@
             const rarityElem = document.getElementById('modal-card-rarity');
             const r = (card.rarity || 'common').toLowerCase();
             const rNames = { common: 'Común', uncommon: 'Infrecuente', rare: 'Rara', mythic: 'Mítica' };
-            rarityElem.className = `badge-pill badge-${r}`;
-            rarityElem.textContent = rNames[r] || 'Común';
+            if (rarityElem) {
+                rarityElem.className = `badge-pill badge-${r}`;
+                rarityElem.textContent = rNames[r] || 'Común';
+            }
 
             document.getElementById('modal-card-locations').innerHTML = locations.map(l => `
                 <div class="flex justify-between items-center py-1.5 px-3 rounded-xl ${l.is_deck ? 'bg-amber-500/10 text-amber-300 border-amber-500/20' : 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20'} border backdrop-blur-md">
@@ -289,21 +258,17 @@
             const textContainer = document.getElementById('modal-card-text');
             const translatedNameElem = document.getElementById('modal-card-translated-name');
             const typeElem = document.getElementById('modal-card-type');
-            const manaElem = document.getElementById('modal-mana-cost');
 
-            textContainer.innerHTML = '<span class="text-amber-400 animate-pulse">Obteniendo texto oficial en español...</span>';
-            translatedNameElem.textContent = '';
+            if (textContainer) textContainer.innerHTML = '<span class="text-amber-400 animate-pulse">Cargando texto...</span>';
+            if (translatedNameElem) translatedNameElem.textContent = '';
 
             try {
                 const resEn = await fetch(`https://api.scryfall.com/cards/${scryfallId}`);
                 const dataEn = await resEn.json();
-
-                typeElem.textContent = dataEn.type_line || 'Carta de Magic';
-                manaElem.innerHTML = formatManaAndText(dataEn.mana_cost || '');
+                if (typeElem) typeElem.textContent = dataEn.type_line || '';
 
                 let textEs = null;
                 let nameEs = null;
-
                 if (dataEn.oracle_id) {
                     const searchRes = await fetch(`https://api.scryfall.com/cards/search?q=oracle_id:${dataEn.oracle_id}+lang:es`);
                     if (searchRes.ok) {
@@ -315,111 +280,67 @@
                         }
                     }
                 }
-
-                if (textEs) {
+                if (textEs && translatedNameElem && textContainer) {
                     translatedNameElem.textContent = `🇪🇸 ${nameEs}`;
-                    textContainer.innerHTML = formatManaAndText(textEs).replace(/\n/g, '<br>');
-                } else {
-                    textContainer.innerHTML = formatManaAndText(dataEn.oracle_text || 'Sin texto de regla.').replace(/\n/g, '<br>');
+                    textContainer.innerHTML = textEs.replace(/\n/g, '<br>');
+                } else if (textContainer) {
+                    textContainer.innerHTML = (dataEn.oracle_text || 'Sin texto.').replace(/\n/g, '<br>');
                 }
             } catch (e) {
-                textContainer.textContent = 'Sin texto disponible.';
+                if (textContainer) textContainer.textContent = 'Sin texto disponible.';
             }
         }
 
-        function closeCardModal() { document.getElementById('card-modal').classList.add('hidden'); }
+        function closeCardModal() {
+            const modal = document.getElementById('card-modal');
+            if (modal) modal.classList.add('hidden');
+        }
 
         async function loadDecks() {
-            const pRes = await fetch('/api/decks/physical');
-            const pData = await pRes.json();
-            document.getElementById('physical-decks-list').innerHTML = pData.decks.map(d => `
-                <div class="panel-card p-4 flex justify-between items-center border-l-2 border-l-emerald-500">
-                    <span class="font-bold text-zinc-200">${d.name}</span>
-                    <span class="text-xs bg-zinc-800 px-2 py-1 rounded text-zinc-400">${d.total_cards} cartas</span>
-                </div>
-            `).join('');
-
-            const bRes = await fetch('/api/decks/brews');
-            const bData = await bRes.json();
-            document.getElementById('brewed-decks-list').innerHTML = bData.decks.map(d => `
-                <div class="panel-card p-4 flex justify-between items-center border-l-2 border-l-amber-500">
-                    <span class="font-bold text-zinc-200">${d.name}</span>
-                    <span class="text-xs bg-zinc-800 px-2 py-1 rounded text-zinc-400">${d.total_cards} cartas</span>
-                </div>
-            `).join('');
-        }
-
-        const importForm = document.getElementById('import-text-form');
-        if (importForm) {
-            importForm.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const btn = document.getElementById('btn-submit-brew');
-                btn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Procesando...';
-                renderIcons();
-
-                await fetch('/api/decks/import-text', {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        name: document.getElementById('brew-name').value,
-                        decklist: document.getElementById('brew-list').value
-                    })
-                });
-
-                document.getElementById('import-text-form').reset();
-                document.getElementById('import-text-modal').classList.add('hidden');
-                btn.innerHTML = '<i data-lucide="download" class="w-4 h-4"></i> Importar desde Scryfall';
-                loadDecks();
-                renderIcons();
-            });
-        }
-
-        const uploadForm = document.getElementById('upload-form');
-        if (uploadForm) {
-            uploadForm.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const statusDiv = document.getElementById('upload-status');
-                const btn = document.getElementById('btn-upload');
-                const formData = new FormData();
-
-                formData.append('file', document.getElementById('csv-file').files[0]);
-                formData.append('location', document.getElementById('location-input').value);
-                formData.append('is_deck', document.getElementById('is-deck-checkbox').checked);
-
-                statusDiv.classList.remove('hidden', 'bg-emerald-500/10', 'text-emerald-400', 'bg-rose-500/10', 'text-rose-400');
-                statusDiv.classList.add('bg-amber-500/10', 'text-amber-400');
-                statusDiv.innerHTML = '<div class="flex items-center justify-center gap-2"><i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Importando...</div>';
-                btn.disabled = true;
-                renderIcons();
-
-                try {
-                    const res = await fetch('/api/upload', { method: 'POST', body: formData });
-                    const result = await res.json();
-                    statusDiv.classList.remove('bg-amber-500/10', 'text-amber-400');
-                    if (res.ok) {
-                        statusDiv.classList.add('bg-emerald-500/10', 'text-emerald-400');
-                        statusDiv.innerHTML = `<div class="flex items-center justify-center gap-2"><i data-lucide="check-circle-2" class="w-4 h-4"></i> ${result.message}</div>`;
-                        loadStats();
-                        triggerSearch();
-                        document.getElementById('upload-form').reset();
-                    } else {
-                        statusDiv.classList.add('bg-rose-500/10', 'text-rose-400');
-                        statusDiv.innerHTML = `<div class="flex items-center justify-center gap-2"><i data-lucide="alert-circle" class="w-4 h-4"></i> Error: ${result.message}</div>`;
-                    }
-                } catch (err) {
-                    statusDiv.classList.remove('bg-amber-500/10', 'text-amber-400');
-                    statusDiv.classList.add('bg-rose-500/10', 'text-rose-400');
-                    statusDiv.innerHTML = `<div class="flex items-center justify-center gap-2"><i data-lucide="alert-circle" class="w-4 h-4"></i> Error de conexión.</div>`;
-                } finally {
-                    btn.disabled = false;
-                    renderIcons();
+            try {
+                const pRes = await fetch('/api/decks/physical');
+                const pData = await pRes.json();
+                const pList = document.getElementById('physical-decks-list');
+                if (pList) {
+                    pList.innerHTML = pData.decks.map(d => `
+                        <div class="panel-card p-4 flex justify-between items-center border-l-2 border-l-emerald-500">
+                            <span class="font-bold text-zinc-200">${d.name}</span>
+                            <span class="text-xs bg-zinc-800 px-2 py-1 rounded text-zinc-400">${d.total_cards} cartas</span>
+                        </div>
+                    `).join('');
                 }
-            });
+
+                const bRes = await fetch('/api/decks/brews');
+                const bData = await bRes.json();
+                const bList = document.getElementById('brewed-decks-list');
+                if (bList) {
+                    bList.innerHTML = bData.decks.map(d => `
+                        <div class="panel-card p-4 flex justify-between items-center border-l-2 border-l-amber-500">
+                            <span class="font-bold text-zinc-200">${d.name}</span>
+                            <span class="text-xs bg-zinc-800 px-2 py-1 rounded text-zinc-400">${d.total_cards} cartas</span>
+                        </div>
+                    `).join('');
+                }
+            } catch (e) { }
         }
 
+        // Inicialización única al cargar la página
         document.addEventListener('DOMContentLoaded', () => {
             loadStats();
             triggerSearch();
             renderIcons();
+
+            // Evento de búsqueda seguro con temporizador simple
+            const searchInput = document.getElementById('search-input');
+            if (searchInput) {
+                let typingTimer;
+                searchInput.addEventListener('input', () => {
+                    clearTimeout(typingTimer);
+                    typingTimer = setTimeout(() => {
+                        triggerSearch();
+                    }, 300);
+                });
+            }
         });
     </script>
 </body>
