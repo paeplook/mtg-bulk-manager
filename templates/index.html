@@ -78,8 +78,11 @@
         let isCommanderMode = false;
         let cardCache = [];
         window.cardStore = {};
+        window.deckCardStore = {};
 
-        function renderIcons() { if (window.lucide) lucide.createIcons(); }
+        function renderIcons() {
+            if (window.lucide) lucide.createIcons();
+        }
 
         function switchTab(tabId) {
             document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
@@ -135,7 +138,6 @@
             triggerSearch();
         }
 
-        // CONTROLADOR DE COLORES CORREGIDO
         function toggleColor(color) {
             const btn = document.getElementById(`color-${color}`);
             if (activeColors.includes(color)) {
@@ -151,7 +153,7 @@
                     btn.classList.remove('border-transparent', 'opacity-60');
                 }
             }
-            renderGrid(); // Renderizar de inmediato usando el filtro local
+            renderGrid();
         }
 
         function toggleCommanderMode() {
@@ -181,6 +183,7 @@
             });
         }
 
+        // --- BÚSQUEDA COLECCIÓN PRINCIPAL ---
         async function triggerSearch() {
             const searchInput = document.getElementById('search-input');
             const sortSelect = document.getElementById('sort-select');
@@ -220,14 +223,11 @@
 
             let filteredCards = cardCache;
 
-            // FILTRADO POR COLORES (Local y veloz)
             if (activeColors.length > 0) {
                 filteredCards = cardCache.filter(card => {
-                    // Si el usuario selecciona 'C' (Incoloro)
                     if (activeColors.includes('C') && activeColors.length === 1) {
                         return !card.mana_cost || (!card.mana_cost.includes('W') && !card.mana_cost.includes('U') && !card.mana_cost.includes('B') && !card.mana_cost.includes('R') && !card.mana_cost.includes('G'));
                     }
-                    // Filtrar por los colores seleccionados
                     return activeColors.some(col => card.mana_cost && card.mana_cost.includes(col));
                 });
             }
@@ -280,9 +280,159 @@
             renderIcons();
         }
 
+        // --- SISTEMA DE MAZOS Y VISTA DETALLADA ---
+        async function loadDecks() {
+            try {
+                const pRes = await fetch('/api/decks/physical');
+                const pData = await pRes.json();
+                const pList = document.getElementById('physical-decks-list');
+                if (pList) {
+                    pList.innerHTML = pData.decks.map(d => `
+                        <div onclick="openDeckView('physical', '${d.name}', '${d.name}')" class="panel-card p-4 flex justify-between items-center border-l-2 border-l-emerald-500 cursor-pointer hover:bg-zinc-800/80 transition">
+                            <span class="font-bold text-zinc-200">${d.name}</span>
+                            <span class="text-xs bg-zinc-800 px-2 py-1 rounded text-zinc-400">${d.total_cards} cartas</span>
+                        </div>
+                    `).join('');
+                }
+
+                const bRes = await fetch('/api/decks/brews');
+                const bData = await bRes.json();
+                const bList = document.getElementById('brewed-decks-list');
+                if (bList) {
+                    bList.innerHTML = bData.decks.map(d => `
+                        <div onclick="openDeckView('brew', '${d.id}', '${d.name}')" class="panel-card p-4 flex justify-between items-center border-l-2 border-l-amber-500 cursor-pointer hover:bg-zinc-800/80 transition">
+                            <span class="font-bold text-zinc-200">${d.name}</span>
+                            <span class="text-xs bg-zinc-800 px-2 py-1 rounded text-zinc-400">${d.total_cards} cartas</span>
+                        </div>
+                    `).join('');
+                }
+            } catch (e) { }
+        }
+
+        function closeDeckView() {
+            document.getElementById('deck-detail-view').classList.add('hidden');
+            document.getElementById('decks-overview').classList.remove('hidden');
+        }
+
+        async function openDeckView(type, identifier, deckName) {
+            document.getElementById('decks-overview').classList.add('hidden');
+            document.getElementById('deck-detail-view').classList.remove('hidden');
+            document.getElementById('deck-detail-title').textContent = deckName;
+            document.getElementById('deck-detail-content').innerHTML = '<div class="text-amber-400 flex items-center gap-2 py-10"><i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Analizando el mazo...</div>';
+            renderIcons();
+
+            try {
+                const url = type === 'physical' ? `/api/decks/physical/${encodeURIComponent(identifier)}` : `/api/decks/brews/${identifier}`;
+                const res = await fetch(url);
+                const data = await res.json();
+                const cards = data.cards;
+
+                // Obtener datos extra de Scryfall para poder separarlos por tipo
+                const uniqueIds = [...new Set(cards.map(c => c.scryfall_id))].filter(Boolean);
+                const chunks = [];
+                for (let i = 0; i < uniqueIds.length; i += 75) chunks.push(uniqueIds.slice(i, i + 75));
+
+                const scryfallData = {};
+                for (const chunk of chunks) {
+                    const sRes = await fetch('https://api.scryfall.com/cards/collection', {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ identifiers: chunk.map(id => ({ id })) })
+                    });
+                    if (sRes.ok) {
+                        const sData = await sRes.json();
+                        sData.data.forEach(c => { scryfallData[c.id] = c; });
+                    }
+                }
+
+                let totalPrice = 0;
+                let totalCards = 0;
+
+                const categories = {
+                    'Comandante / Leyendas': [],
+                    'Planeswalkers': [],
+                    'Criaturas': [],
+                    'Conjuros': [],
+                    'Instantáneos': [],
+                    'Artefactos': [],
+                    'Encantamientos': [],
+                    'Tierras': [],
+                    'Otros': []
+                };
+
+                window.deckCardStore = {};
+
+                cards.forEach((card, idx) => {
+                    const sCard = scryfallData[card.scryfall_id] || {};
+                    const typeLine = (sCard.type_line || '').toLowerCase();
+                    const price = card.purchase_price || parseFloat(sCard.prices?.eur || 0);
+
+                    totalPrice += price * card.total_quantity;
+                    totalCards += card.total_quantity;
+
+                    card.imageUrl = sCard.image_uris?.normal || getScryfallImageUrl(card.scryfall_id);
+                    card.priceFormatted = price ? `${price.toFixed(2)}€` : '-';
+
+                    const storeKey = `deck_card_${idx}`;
+                    window.deckCardStore[storeKey] = { card: card, locations: [{ location: deckName, total_quantity: card.total_quantity, is_deck: true }] };
+
+                    if (typeLine.includes('legendary creature')) categories['Comandante / Leyendas'].push({ key: storeKey, ...card });
+                    else if (typeLine.includes('creature')) categories['Criaturas'].push({ key: storeKey, ...card });
+                    else if (typeLine.includes('planeswalker')) categories['Planeswalkers'].push({ key: storeKey, ...card });
+                    else if (typeLine.includes('land')) categories['Tierras'].push({ key: storeKey, ...card });
+                    else if (typeLine.includes('instant')) categories['Instantáneos'].push({ key: storeKey, ...card });
+                    else if (typeLine.includes('sorcery')) categories['Conjuros'].push({ key: storeKey, ...card });
+                    else if (typeLine.includes('artifact')) categories['Artefactos'].push({ key: storeKey, ...card });
+                    else if (typeLine.includes('enchantment')) categories['Encantamientos'].push({ key: storeKey, ...card });
+                    else categories['Otros'].push({ key: storeKey, ...card });
+                });
+
+                document.getElementById('deck-detail-count').textContent = `${totalCards} cartas`;
+                document.getElementById('deck-total-price').textContent = `${totalPrice.toFixed(2)} €`;
+
+                if (cards.length > 0) document.getElementById('deck-preview-img').src = cards[0].imageUrl;
+
+                let htmlContent = '';
+                Object.keys(categories).forEach(cat => {
+                    if (categories[cat].length === 0) return;
+
+                    categories[cat].sort((a, b) => a.name.localeCompare(b.name));
+                    const count = categories[cat].reduce((acc, c) => acc + c.total_quantity, 0);
+
+                    htmlContent += `
+                        <div class="mb-6 break-inside-avoid">
+                            <h4 class="text-[11px] font-bold text-amber-500 uppercase tracking-wider mb-2 border-b border-zinc-800/50 pb-1">${cat} (${count})</h4>
+                            <ul class="space-y-1">
+                                ${categories[cat].map(c => `
+                                    <li onmouseover="document.getElementById('deck-preview-img').src='${c.imageUrl}'" 
+                                        onclick="openDeckCardModal('${c.key}', '${c.scryfall_id}')"
+                                        class="flex items-center gap-2 group cursor-pointer text-[12px] hover:bg-zinc-800/50 p-1 rounded transition">
+                                        <span class="text-zinc-500 font-mono text-[10px] bg-zinc-900 px-1 rounded">${c.total_quantity}</span>
+                                        <span class="text-zinc-300 group-hover:text-amber-400 transition truncate flex-1">${c.name}</span>
+                                        <span class="text-zinc-600 group-hover:text-amber-500/80 text-[10px] transition">${c.priceFormatted}</span>
+                                    </li>
+                                `).join('')}
+                            </ul>
+                        </div>
+                    `;
+                });
+
+                document.getElementById('deck-detail-content').innerHTML = htmlContent;
+
+            } catch (e) {
+                console.error(e);
+                document.getElementById('deck-detail-content').innerHTML = '<div class="text-rose-400">Error al cargar el mazo.</div>';
+            }
+        }
+
+        // --- VENTANA MODAL (Sirve para Colección y Mazos) ---
         function openCardModalFromStore(storeKey) {
             const data = window.cardStore[storeKey];
             if (data) openCardModal(data.card.scryfall_id, data.card, data.locations);
+        }
+
+        function openDeckCardModal(storeKey, scryfallId) {
+            const data = window.deckCardStore[storeKey];
+            if (data) openCardModal(scryfallId, data.card, data.locations);
         }
 
         async function openCardModal(scryfallId, card, locations) {
@@ -361,34 +511,7 @@
             if (modal) modal.classList.add('hidden');
         }
 
-        async function loadDecks() {
-            try {
-                const pRes = await fetch('/api/decks/physical');
-                const pData = await pRes.json();
-                const pList = document.getElementById('physical-decks-list');
-                if (pList) {
-                    pList.innerHTML = pData.decks.map(d => `
-                        <div class="panel-card p-4 flex justify-between items-center border-l-2 border-l-emerald-500">
-                            <span class="font-bold text-zinc-200">${d.name}</span>
-                            <span class="text-xs bg-zinc-800 px-2 py-1 rounded text-zinc-400">${d.total_cards} cartas</span>
-                        </div>
-                    `).join('');
-                }
-
-                const bRes = await fetch('/api/decks/brews');
-                const bData = await bRes.json();
-                const bList = document.getElementById('brewed-decks-list');
-                if (bList) {
-                    bList.innerHTML = bData.decks.map(d => `
-                        <div class="panel-card p-4 flex justify-between items-center border-l-2 border-l-amber-500">
-                            <span class="font-bold text-zinc-200">${d.name}</span>
-                            <span class="text-xs bg-zinc-800 px-2 py-1 rounded text-zinc-400">${d.total_cards} cartas</span>
-                        </div>
-                    `).join('');
-                }
-            } catch (e) { }
-        }
-
+        // --- GESTIÓN DE FORMULARIOS ---
         const importForm = document.getElementById('import-text-form');
         if (importForm) {
             importForm.addEventListener('submit', async (e) => {
@@ -456,6 +579,7 @@
             });
         }
 
+        // --- INICIALIZACIÓN ---
         document.addEventListener('DOMContentLoaded', () => {
             loadStats();
             triggerSearch();

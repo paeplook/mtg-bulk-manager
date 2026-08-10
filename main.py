@@ -247,3 +247,26 @@ def get_brewed_decks():
     with engine.connect() as conn:
         result = conn.execute(text(sql)).mappings().all()
     return {"decks": [dict(r) for r in result]}
+# --- NUEVAS RUTAS PARA VER EL DETALLE DE UN MAZO ---
+@app.get("/api/decks/physical/{location}")
+def get_physical_deck_cards(location: str):
+    sql = """
+        SELECT scryfall_id, name, set_code, set_name, collector_number, rarity, purchase_price, location, is_deck, SUM(quantity) as total_quantity
+        FROM cards_inventory
+        WHERE location = :location AND is_deck = true
+        GROUP BY scryfall_id, name, set_code, set_name, collector_number, rarity, purchase_price, location, is_deck
+    """
+    with engine.connect() as conn:
+        result = conn.execute(text(sql), {"location": location}).mappings().all()
+    return {"cards": [dict(r) for r in result]}
+
+@app.get("/api/decks/brews/{deck_id}")
+def get_brewed_deck_cards(deck_id: int):
+    sql = """
+        SELECT scryfall_id, name, set_code, quantity as total_quantity, 0 as purchase_price
+        FROM brewed_deck_cards
+        WHERE deck_id = :deck_id
+    """
+    with engine.connect() as conn:
+        result = conn.execute(text(sql), {"deck_id": deck_id}).mappings().all()
+    return {"cards": [dict(r) for r in result]}
