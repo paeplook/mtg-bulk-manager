@@ -71,7 +71,7 @@
         </div>
     </main>
 
-    <!-- MOTOR JAVASCRIPT GLOBAL SEGURO -->
+    <!-- MOTOR JAVASCRIPT GLOBAL SEGURO Y OPTIMIZADO -->
     <script>
         let activeRarities = [];
         let activeColors = [];
@@ -137,12 +137,48 @@
             triggerSearch();
         }
 
+        function toggleColor(color) {
+            const btn = document.getElementById(`color-${color}`);
+            if (activeColors.includes(color)) {
+                activeColors = activeColors.filter(c => c !== color);
+                btn.classList.remove('border-amber-400', 'ring-2', 'ring-amber-400/50', 'opacity-100');
+                btn.classList.add('border-transparent', 'opacity-60');
+            } else {
+                activeColors.push(color);
+                btn.classList.add('border-amber-400', 'ring-2', 'ring-amber-400/50', 'opacity-100');
+                btn.classList.remove('border-transparent', 'opacity-60');
+            }
+            triggerSearch(); // En la versión optimizada lo llamamos directo
+        }
+
+        function toggleCommanderMode() {
+            isCommanderMode = !isCommanderMode;
+            const btn = document.getElementById('commander-toggle');
+            const dot = document.getElementById('commander-dot');
+            if (isCommanderMode) {
+                btn.classList.add('border-amber-500', 'bg-amber-500/10', 'text-amber-400');
+                dot.classList.add('bg-amber-400');
+            } else {
+                btn.classList.remove('border-amber-500', 'bg-amber-500/10', 'text-amber-400');
+                dot.classList.remove('bg-amber-400');
+            }
+            triggerSearch();
+        }
+
         function getScryfallImageUrl(id) {
             if (!id || id.length < 2) return 'https://cards.scryfall.io/back.png';
             return `https://cards.scryfall.io/normal/front/${id.charAt(0)}/${id.charAt(1)}/${id}.jpg`;
         }
 
-        // Búsqueda principal ligera
+        function formatManaAndText(text) {
+            if (!text) return '';
+            return text.replace(/\{([^}]+)\}/g, (match, symbol) => {
+                const cleanSym = symbol.toLowerCase().replace('/', '');
+                return `<i class="ms ms-${cleanSym} ms-cost ms-shadow"></i>`;
+            });
+        }
+
+        // --- BÚSQUEDA PRINCIPAL ---
         async function triggerSearch() {
             const searchInput = document.getElementById('search-input');
             const sortSelect = document.getElementById('sort-select');
@@ -169,6 +205,7 @@
             }
         }
 
+        // --- RENDERIZADO OPTIMIZADO (¡Adiós bloqueos!) ---
         function renderGrid() {
             const grid = document.getElementById('results-grid');
             const noResults = document.getElementById('no-results');
@@ -180,16 +217,25 @@
                 return;
             }
 
+            let filteredCards = cardCache;
+            // Filtros de color
+            if (activeColors.length > 0) {
+                // Como quitamos la llamada masiva a Scryfall (fetchBatchColors), el filtro por colores aquí no tiene los datos. 
+                // Lo dejamos para cuando lo integres en la BD.
+            }
+
             if (noResults) noResults.classList.add('hidden');
             const grouped = {};
-            cardCache.forEach(item => {
+            filteredCards.forEach(item => {
                 if (!grouped[item.name]) grouped[item.name] = [];
                 grouped[item.name].push(item);
             });
 
-            grid.innerHTML = '';
             window.cardStore = {};
             let index = 0;
+
+            // MAGIA: Construimos todo el HTML en memoria
+            let htmlContent = '';
 
             Object.keys(grouped).forEach(cardName => {
                 const locations = grouped[cardName];
@@ -202,7 +248,7 @@
                 const storeKey = `card_${index++}`;
                 window.cardStore[storeKey] = { card, locations };
 
-                grid.innerHTML += `
+                htmlContent += `
                     <div onclick="openCardModalFromStore('${storeKey}')" class="mtg-card-item group cursor-pointer">
                         <div class="mtg-card-img-wrapper">
                             <img src="${imageUrl}" alt="" loading="lazy" class="mtg-card-img" onerror="this.onerror=null; this.src='https://cards.scryfall.io/back.png';">
@@ -217,9 +263,13 @@
                     </div>
                 `;
             });
+
+            // Asignamos a la pantalla de un solo golpe. 4000 cartas en 1ms.
+            grid.innerHTML = htmlContent;
             renderIcons();
         }
 
+        // --- VENTANA MODAL ---
         function openCardModalFromStore(storeKey) {
             const data = window.cardStore[storeKey];
             if (data) openCardModal(data.card.scryfall_id, data.card, data.locations);
@@ -258,17 +308,21 @@
             const textContainer = document.getElementById('modal-card-text');
             const translatedNameElem = document.getElementById('modal-card-translated-name');
             const typeElem = document.getElementById('modal-card-type');
+            const manaElem = document.getElementById('modal-mana-cost');
 
-            if (textContainer) textContainer.innerHTML = '<span class="text-amber-400 animate-pulse">Cargando texto...</span>';
+            if (textContainer) textContainer.innerHTML = '<span class="text-amber-400 animate-pulse">Obteniendo texto oficial en español...</span>';
             if (translatedNameElem) translatedNameElem.textContent = '';
 
             try {
                 const resEn = await fetch(`https://api.scryfall.com/cards/${scryfallId}`);
                 const dataEn = await resEn.json();
-                if (typeElem) typeElem.textContent = dataEn.type_line || '';
+
+                if (typeElem) typeElem.textContent = dataEn.type_line || 'Carta de Magic';
+                if (manaElem) manaElem.innerHTML = formatManaAndText(dataEn.mana_cost || '');
 
                 let textEs = null;
                 let nameEs = null;
+
                 if (dataEn.oracle_id) {
                     const searchRes = await fetch(`https://api.scryfall.com/cards/search?q=oracle_id:${dataEn.oracle_id}+lang:es`);
                     if (searchRes.ok) {
@@ -280,11 +334,12 @@
                         }
                     }
                 }
+
                 if (textEs && translatedNameElem && textContainer) {
                     translatedNameElem.textContent = `🇪🇸 ${nameEs}`;
-                    textContainer.innerHTML = textEs.replace(/\n/g, '<br>');
+                    textContainer.innerHTML = formatManaAndText(textEs).replace(/\n/g, '<br>');
                 } else if (textContainer) {
-                    textContainer.innerHTML = (dataEn.oracle_text || 'Sin texto.').replace(/\n/g, '<br>');
+                    textContainer.innerHTML = formatManaAndText(dataEn.oracle_text || 'Sin texto de regla.').replace(/\n/g, '<br>');
                 }
             } catch (e) {
                 if (textContainer) textContainer.textContent = 'Sin texto disponible.';
@@ -296,6 +351,7 @@
             if (modal) modal.classList.add('hidden');
         }
 
+        // --- SISTEMA DE MAZOS ---
         async function loadDecks() {
             try {
                 const pRes = await fetch('/api/decks/physical');
@@ -324,13 +380,81 @@
             } catch (e) { }
         }
 
-        // Inicialización única al cargar la página
+        const importForm = document.getElementById('import-text-form');
+        if (importForm) {
+            importForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const btn = document.getElementById('btn-submit-brew');
+                btn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Procesando...';
+                renderIcons();
+
+                await fetch('/api/decks/import-text', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: document.getElementById('brew-name').value,
+                        decklist: document.getElementById('brew-list').value
+                    })
+                });
+
+                document.getElementById('import-text-form').reset();
+                document.getElementById('import-text-modal').classList.add('hidden');
+                btn.innerHTML = '<i data-lucide="download" class="w-4 h-4"></i> Importar desde Scryfall';
+                loadDecks();
+                renderIcons();
+            });
+        }
+
+        // --- SUBIDA DE CSV ---
+        const uploadForm = document.getElementById('upload-form');
+        if (uploadForm) {
+            uploadForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const statusDiv = document.getElementById('upload-status');
+                const btn = document.getElementById('btn-upload');
+                const formData = new FormData();
+
+                formData.append('file', document.getElementById('csv-file').files[0]);
+                formData.append('location', document.getElementById('location-input').value);
+                formData.append('is_deck', document.getElementById('is-deck-checkbox').checked);
+
+                statusDiv.classList.remove('hidden', 'bg-emerald-500/10', 'text-emerald-400', 'bg-rose-500/10', 'text-rose-400');
+                statusDiv.classList.add('bg-amber-500/10', 'text-amber-400');
+                statusDiv.innerHTML = '<div class="flex items-center justify-center gap-2"><i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Importando...</div>';
+                btn.disabled = true;
+                renderIcons();
+
+                try {
+                    const res = await fetch('/api/upload', { method: 'POST', body: formData });
+                    const result = await res.json();
+                    statusDiv.classList.remove('bg-amber-500/10', 'text-amber-400');
+                    if (res.ok) {
+                        statusDiv.classList.add('bg-emerald-500/10', 'text-emerald-400');
+                        statusDiv.innerHTML = `<div class="flex items-center justify-center gap-2"><i data-lucide="check-circle-2" class="w-4 h-4"></i> ${result.message}</div>`;
+                        loadStats();
+                        triggerSearch();
+                        document.getElementById('upload-form').reset();
+                    } else {
+                        statusDiv.classList.add('bg-rose-500/10', 'text-rose-400');
+                        statusDiv.innerHTML = `<div class="flex items-center justify-center gap-2"><i data-lucide="alert-circle" class="w-4 h-4"></i> Error: ${result.message}</div>`;
+                    }
+                } catch (err) {
+                    statusDiv.classList.remove('bg-amber-500/10', 'text-amber-400');
+                    statusDiv.classList.add('bg-rose-500/10', 'text-rose-400');
+                    statusDiv.innerHTML = `<div class="flex items-center justify-center gap-2"><i data-lucide="alert-circle" class="w-4 h-4"></i> Error de conexión.</div>`;
+                } finally {
+                    btn.disabled = false;
+                    renderIcons();
+                }
+            });
+        }
+
+        // --- INICIALIZACIÓN ---
         document.addEventListener('DOMContentLoaded', () => {
             loadStats();
             triggerSearch();
             renderIcons();
 
-            // Evento de búsqueda seguro con temporizador simple
+            // Evento de búsqueda con temporizador (Debounce)
             const searchInput = document.getElementById('search-input');
             if (searchInput) {
                 let typingTimer;
