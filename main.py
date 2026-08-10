@@ -76,7 +76,8 @@ def get_stats():
 def search_cards(
     q: Optional[str] = Query(None),
     sort_by: Optional[str] = Query("name_asc"),
-    rarity: Optional[str] = Query(None)
+    rarity: Optional[str] = Query(None),
+    colors: Optional[str] = Query(None)
 ):
     sql = """
         SELECT 

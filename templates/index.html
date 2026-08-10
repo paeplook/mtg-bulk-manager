@@ -71,7 +71,7 @@
         </div>
     </main>
 
-    <!-- MOTOR JAVASCRIPT GLOBAL SEGURO Y OPTIMIZADO -->
+    <!-- MOTOR JAVASCRIPT GLOBAL -->
     <script>
         let activeRarities = [];
         let activeColors = [];
@@ -79,9 +79,7 @@
         let cardCache = [];
         window.cardStore = {};
 
-        function renderIcons() {
-            if (window.lucide) lucide.createIcons();
-        }
+        function renderIcons() { if (window.lucide) lucide.createIcons(); }
 
         function switchTab(tabId) {
             document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
@@ -137,18 +135,23 @@
             triggerSearch();
         }
 
+        // CONTROLADOR DE COLORES CORREGIDO
         function toggleColor(color) {
             const btn = document.getElementById(`color-${color}`);
             if (activeColors.includes(color)) {
                 activeColors = activeColors.filter(c => c !== color);
-                btn.classList.remove('border-amber-400', 'ring-2', 'ring-amber-400/50', 'opacity-100');
-                btn.classList.add('border-transparent', 'opacity-60');
+                if (btn) {
+                    btn.classList.remove('border-amber-400', 'ring-2', 'ring-amber-400/50', 'opacity-100');
+                    btn.classList.add('border-transparent', 'opacity-60');
+                }
             } else {
                 activeColors.push(color);
-                btn.classList.add('border-amber-400', 'ring-2', 'ring-amber-400/50', 'opacity-100');
-                btn.classList.remove('border-transparent', 'opacity-60');
+                if (btn) {
+                    btn.classList.add('border-amber-400', 'ring-2', 'ring-amber-400/50', 'opacity-100');
+                    btn.classList.remove('border-transparent', 'opacity-60');
+                }
             }
-            triggerSearch(); // En la versión optimizada lo llamamos directo
+            renderGrid(); // Renderizar de inmediato usando el filtro local
         }
 
         function toggleCommanderMode() {
@@ -156,13 +159,13 @@
             const btn = document.getElementById('commander-toggle');
             const dot = document.getElementById('commander-dot');
             if (isCommanderMode) {
-                btn.classList.add('border-amber-500', 'bg-amber-500/10', 'text-amber-400');
-                dot.classList.add('bg-amber-400');
+                if (btn) btn.classList.add('border-amber-500', 'bg-amber-500/10', 'text-amber-400');
+                if (dot) dot.classList.add('bg-amber-400');
             } else {
-                btn.classList.remove('border-amber-500', 'bg-amber-500/10', 'text-amber-400');
-                dot.classList.remove('bg-amber-400');
+                if (btn) btn.classList.remove('border-amber-500', 'bg-amber-500/10', 'text-amber-400');
+                if (dot) dot.classList.remove('bg-amber-400');
             }
-            triggerSearch();
+            renderGrid();
         }
 
         function getScryfallImageUrl(id) {
@@ -178,7 +181,6 @@
             });
         }
 
-        // --- BÚSQUEDA PRINCIPAL ---
         async function triggerSearch() {
             const searchInput = document.getElementById('search-input');
             const sortSelect = document.getElementById('sort-select');
@@ -205,7 +207,6 @@
             }
         }
 
-        // --- RENDERIZADO OPTIMIZADO (¡Adiós bloqueos!) ---
         function renderGrid() {
             const grid = document.getElementById('results-grid');
             const noResults = document.getElementById('no-results');
@@ -218,10 +219,23 @@
             }
 
             let filteredCards = cardCache;
-            // Filtros de color
+
+            // FILTRADO POR COLORES (Local y veloz)
             if (activeColors.length > 0) {
-                // Como quitamos la llamada masiva a Scryfall (fetchBatchColors), el filtro por colores aquí no tiene los datos. 
-                // Lo dejamos para cuando lo integres en la BD.
+                filteredCards = cardCache.filter(card => {
+                    // Si el usuario selecciona 'C' (Incoloro)
+                    if (activeColors.includes('C') && activeColors.length === 1) {
+                        return !card.mana_cost || (!card.mana_cost.includes('W') && !card.mana_cost.includes('U') && !card.mana_cost.includes('B') && !card.mana_cost.includes('R') && !card.mana_cost.includes('G'));
+                    }
+                    // Filtrar por los colores seleccionados
+                    return activeColors.some(col => card.mana_cost && card.mana_cost.includes(col));
+                });
+            }
+
+            if (filteredCards.length === 0) {
+                grid.innerHTML = '';
+                if (noResults) noResults.classList.remove('hidden');
+                return;
             }
 
             if (noResults) noResults.classList.add('hidden');
@@ -233,8 +247,6 @@
 
             window.cardStore = {};
             let index = 0;
-
-            // MAGIA: Construimos todo el HTML en memoria
             let htmlContent = '';
 
             Object.keys(grouped).forEach(cardName => {
@@ -264,12 +276,10 @@
                 `;
             });
 
-            // Asignamos a la pantalla de un solo golpe. 4000 cartas en 1ms.
             grid.innerHTML = htmlContent;
             renderIcons();
         }
 
-        // --- VENTANA MODAL ---
         function openCardModalFromStore(storeKey) {
             const data = window.cardStore[storeKey];
             if (data) openCardModal(data.card.scryfall_id, data.card, data.locations);
@@ -351,7 +361,6 @@
             if (modal) modal.classList.add('hidden');
         }
 
-        // --- SISTEMA DE MAZOS ---
         async function loadDecks() {
             try {
                 const pRes = await fetch('/api/decks/physical');
@@ -404,7 +413,6 @@
             });
         }
 
-        // --- SUBIDA DE CSV ---
         const uploadForm = document.getElementById('upload-form');
         if (uploadForm) {
             uploadForm.addEventListener('submit', async (e) => {
@@ -448,13 +456,11 @@
             });
         }
 
-        // --- INICIALIZACIÓN ---
         document.addEventListener('DOMContentLoaded', () => {
             loadStats();
             triggerSearch();
             renderIcons();
 
-            // Evento de búsqueda con temporizador (Debounce)
             const searchInput = document.getElementById('search-input');
             if (searchInput) {
                 let typingTimer;
