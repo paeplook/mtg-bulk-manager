@@ -58,7 +58,7 @@
         </div>
     </header>
 
-    <!-- AQUÍ SE INYECTAN LOS FRAGMENTOS HTML -->
+    <!-- INYECCIÓN DE FRAGMENTOS -->
     <main class="max-w-7xl mx-auto px-4 py-5">
         <div id="view-collection" class="tab-content">
             {% include 'views/collection.html' %}
@@ -73,17 +73,14 @@
 
     <!-- MOTOR JAVASCRIPT GLOBAL -->
     <script>
-        // ESTADO DE LA APLICACIÓN
         let activeRarities = [];
         let activeColors = [];
         let isCommanderMode = false;
         let cardCache = [];
         window.cardStore = {};
 
-        // INICIALIZADOR DE ICONOS
         function renderIcons() { if (window.lucide) lucide.createIcons(); }
 
-        // SISTEMA DE PESTAÑAS
         function switchTab(tabId) {
             document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
             document.querySelectorAll('.tab-btn').forEach(el => {
@@ -96,7 +93,6 @@
             if (tabId === 'view-decks') loadDecks();
         }
 
-        // CARGA DE ESTADÍSTICAS (CABECERA)
         async function loadStats() {
             try {
                 const res = await fetch('/api/stats');
@@ -107,7 +103,21 @@
             } catch (e) { }
         }
 
-        // --- LÓGICA DE LA COLECCIÓN Y BUSCADOR ---
+        async function updatePricesNow() {
+            const btn = document.getElementById('btn-update-prices');
+            btn.innerHTML = '<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i> Sincronizando...';
+            btn.disabled = true;
+            renderIcons();
+            try {
+                await fetch('/api/update-prices', { method: 'POST' });
+                alert("Sincronización de precios iniciada.");
+            } catch (e) { } finally {
+                btn.innerHTML = '<i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Sincronizar Cardmarket';
+                btn.disabled = false;
+                renderIcons();
+            }
+        }
+
         function toggleFiltersDrawer() { document.getElementById('filters-drawer').classList.toggle('hidden'); }
         function toggleCommanderMode() {
             isCommanderMode = !isCommanderMode;
@@ -169,33 +179,12 @@
             });
         }
 
-        async function fetchBatchColors() {
-            const uniqueIds = [...new Set(cardCache.map(c => c.scryfall_id))].filter(Boolean);
-            if (uniqueIds.length === 0) return;
-            const chunks = [];
-            for (let i = 0; i < uniqueIds.length; i += 75) chunks.push(uniqueIds.slice(i, i + 75));
-            const colorMap = {};
-            for (const chunk of chunks) {
-                try {
-                    const res = await fetch('https://api.scryfall.com/cards/collection', {
-                        method: 'POST', headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ identifiers: chunk.map(id => ({ id })) })
-                    });
-                    if (res.ok) {
-                        const data = await res.json();
-                        (data.data || []).forEach(card => {
-                            if (card && card.id) colorMap[card.id] = card.color_identity || card.colors || [];
-                        });
-                    }
-                } catch (e) { }
-            }
-            cardCache.forEach(card => { card.colors = colorMap[card.scryfall_id] || []; });
-        }
-
+        // --- BUSCADOR ULTRA RÁPIDO Y LIGERO ---
         async function triggerSearch() {
             const q = document.getElementById('search-input') ? document.getElementById('search-input').value.trim() : "";
             const sortBy = document.getElementById('sort-select') ? document.getElementById('sort-select').value : "name_asc";
             const spinner = document.getElementById('loading-spinner');
+
             if (spinner) spinner.classList.remove('hidden');
 
             let url = `/api/search?q=${encodeURIComponent(q)}&sort_by=${sortBy}`;
@@ -205,9 +194,10 @@
                 const res = await fetch(url);
                 const data = await res.json();
                 cardCache = data.results || [];
-                await fetchBatchColors();
                 filterCurrentResults();
-            } catch (e) { } finally {
+            } catch (e) {
+                console.error("Error en búsqueda:", e);
+            } finally {
                 if (spinner) spinner.classList.add('hidden');
                 renderIcons();
             }
@@ -220,34 +210,13 @@
 
             if (cardCache.length === 0) {
                 grid.innerHTML = '';
-                noResults.classList.remove('hidden');
+                if (noResults) noResults.classList.remove('hidden');
                 return;
             }
 
-            let filteredCards = cardCache;
-            if (activeColors.length > 0) {
-                filteredCards = cardCache.filter(card => {
-                    const cardColors = card.colors || [];
-                    if (isCommanderMode) {
-                        if (cardColors.length === 0) return activeColors.includes('C');
-                        return cardColors.every(c => activeColors.includes(c));
-                    }
-                    if (cardColors.length === 0) return activeColors.includes('C');
-                    const coloredSelections = activeColors.filter(c => c !== 'C');
-                    if (coloredSelections.length === 0) return false;
-                    return coloredSelections.some(c => cardColors.includes(c));
-                });
-            }
-
-            if (filteredCards.length === 0) {
-                grid.innerHTML = '';
-                noResults.classList.remove('hidden');
-                return;
-            }
-
-            noResults.classList.add('hidden');
+            if (noResults) noResults.classList.add('hidden');
             const grouped = {};
-            filteredCards.forEach(item => {
+            cardCache.forEach(item => {
                 if (!grouped[item.name]) grouped[item.name] = [];
                 grouped[item.name].push(item);
             });
@@ -268,7 +237,7 @@
                 window.cardStore[storeKey] = { card, locations };
 
                 grid.innerHTML += `
-                    <div onclick="openCardModalFromStore('${storeKey}')" class="mtg-card-item group">
+                    <div onclick="openCardModalFromStore('${storeKey}')" class="mtg-card-item group cursor-pointer">
                         <div class="mtg-card-img-wrapper">
                             <img src="${imageUrl}" alt="" loading="lazy" class="mtg-card-img" onerror="this.onerror=null; this.src='https://cards.scryfall.io/back.png';">
                         </div>
@@ -285,7 +254,6 @@
             renderIcons();
         }
 
-        // --- LÓGICA DE LA VENTANA POP-UP DE LA CARTA ---
         function openCardModalFromStore(storeKey) {
             const data = window.cardStore[storeKey];
             if (data) openCardModal(data.card.scryfall_id, data.card, data.locations);
@@ -327,7 +295,6 @@
             translatedNameElem.textContent = '';
 
             try {
-                // Sacar oracle_id original
                 const resEn = await fetch(`https://api.scryfall.com/cards/${scryfallId}`);
                 const dataEn = await resEn.json();
 
@@ -337,7 +304,6 @@
                 let textEs = null;
                 let nameEs = null;
 
-                // Buscar la traducción en español en toda la base de Scryfall por oracle_id
                 if (dataEn.oracle_id) {
                     const searchRes = await fetch(`https://api.scryfall.com/cards/search?q=oracle_id:${dataEn.oracle_id}+lang:es`);
                     if (searchRes.ok) {
@@ -363,7 +329,6 @@
 
         function closeCardModal() { document.getElementById('card-modal').classList.add('hidden'); }
 
-        // --- LÓGICA DE MAZOS Y FORMULARIO DE IMPORTACIÓN ---
         async function loadDecks() {
             const pRes = await fetch('/api/decks/physical');
             const pData = await pRes.json();
@@ -451,7 +416,6 @@
             });
         }
 
-        // INICIALIZAR LA APLICACIÓN
         document.addEventListener('DOMContentLoaded', () => {
             loadStats();
             triggerSearch();
