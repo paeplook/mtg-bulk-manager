@@ -13,7 +13,6 @@
 
 <body class="min-h-screen">
 
-    <!-- CABECERA -->
     <header class="app-header sticky top-0 z-40 px-6 py-2.5">
         <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-3">
             <div class="flex items-center space-x-6">
@@ -58,20 +57,12 @@
         </div>
     </header>
 
-    <!-- INYECCIÓN DE FRAGMENTOS -->
     <main class="max-w-7xl mx-auto px-4 py-5">
-        <div id="view-collection" class="tab-content">
-            {% include 'views/collection.html' %}
-        </div>
-        <div id="view-decks" class="tab-content hidden">
-            {% include 'views/decks.html' %}
-        </div>
-        <div id="view-import" class="tab-content hidden">
-            {% include 'views/import.html' %}
-        </div>
+        <div id="view-collection" class="tab-content">{% include 'views/collection.html' %}</div>
+        <div id="view-decks" class="tab-content hidden">{% include 'views/decks.html' %}</div>
+        <div id="view-import" class="tab-content hidden">{% include 'views/import.html' %}</div>
     </main>
 
-    <!-- MOTOR JAVASCRIPT GLOBAL -->
     <script>
         let activeRarities = [];
         let activeColors = [];
@@ -80,9 +71,16 @@
         window.cardStore = {};
         window.deckCardStore = {};
 
-        function renderIcons() {
-            if (window.lucide) lucide.createIcons();
-        }
+        // Memoria Caché Global para no congelar Scryfall
+        window.scryfallColorCache = window.scryfallColorCache || {};
+        window.tempCmdSearch = [];
+
+        // Estado del Mazo Actual
+        let currentDeckType = '';
+        let currentDeckId = '';
+        let currentDeckName = '';
+
+        function renderIcons() { if (window.lucide) lucide.createIcons(); }
 
         function switchTab(tabId) {
             document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
@@ -183,6 +181,28 @@
             });
         }
 
+        // --- SISTEMA DE COLORES EN CACHÉ LIGERA ---
+        async function fetchBatchColors() {
+            const uniqueIds = [...new Set(cardCache.map(c => c.scryfall_id))].filter(id => !window.scryfallColorCache[id]);
+            if (uniqueIds.length === 0) return;
+
+            const chunks = [];
+            for (let i = 0; i < uniqueIds.length; i += 75) chunks.push(uniqueIds.slice(i, i + 75));
+
+            for (const chunk of chunks) {
+                try {
+                    const res = await fetch('https://api.scryfall.com/cards/collection', {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ identifiers: chunk.map(id => ({ id })) })
+                    });
+                    if (res.ok) {
+                        const data = await res.json();
+                        data.data.forEach(c => { window.scryfallColorCache[c.id] = c.colors || []; });
+                    }
+                } catch (e) { }
+            }
+        }
+
         // --- BÚSQUEDA COLECCIÓN PRINCIPAL ---
         async function triggerSearch() {
             const searchInput = document.getElementById('search-input');
@@ -201,6 +221,10 @@
                 const res = await fetch(url);
                 const data = await res.json();
                 cardCache = data.results || [];
+
+                // Pide colores sin bloquear el navegador
+                await fetchBatchColors();
+
                 renderGrid();
             } catch (e) {
                 console.error("Error buscando cartas:", e);
@@ -223,12 +247,19 @@
 
             let filteredCards = cardCache;
 
+            // Filtro de color utilizando la memoria Caché
             if (activeColors.length > 0) {
                 filteredCards = cardCache.filter(card => {
-                    if (activeColors.includes('C') && activeColors.length === 1) {
-                        return !card.mana_cost || (!card.mana_cost.includes('W') && !card.mana_cost.includes('U') && !card.mana_cost.includes('B') && !card.mana_cost.includes('R') && !card.mana_cost.includes('G'));
+                    const cardColors = window.scryfallColorCache[card.scryfall_id] || [];
+
+                    if (isCommanderMode) {
+                        if (cardColors.length === 0) return activeColors.includes('C');
+                        return cardColors.every(c => activeColors.includes(c));
+                    } else {
+                        if (activeColors.includes('C') && activeColors.length === 1) return cardColors.length === 0;
+                        const coloredSelections = activeColors.filter(c => c !== 'C');
+                        return coloredSelections.some(c => cardColors.includes(c));
                     }
-                    return activeColors.some(col => card.mana_cost && card.mana_cost.includes(col));
                 });
             }
 
@@ -280,7 +311,7 @@
             renderIcons();
         }
 
-        // --- SISTEMA DE MAZOS Y VISTA DETALLADA ---
+        // --- VISTA DETALLADA DE MAZOS Y COMANDANTE ---
         async function loadDecks() {
             try {
                 const pRes = await fetch('/api/decks/physical');
@@ -315,6 +346,10 @@
         }
 
         async function openDeckView(type, identifier, deckName) {
+            currentDeckType = type;
+            currentDeckId = identifier;
+            currentDeckName = deckName;
+
             document.getElementById('decks-overview').classList.add('hidden');
             document.getElementById('deck-detail-view').classList.remove('hidden');
             document.getElementById('deck-detail-title').textContent = deckName;
@@ -327,7 +362,6 @@
                 const data = await res.json();
                 const cards = data.cards;
 
-                // Obtener datos extra de Scryfall para poder separarlos por tipo
                 const uniqueIds = [...new Set(cards.map(c => c.scryfall_id))].filter(Boolean);
                 const chunks = [];
                 for (let i = 0; i < uniqueIds.length; i += 75) chunks.push(uniqueIds.slice(i, i + 75));
@@ -348,7 +382,7 @@
                 let totalCards = 0;
 
                 const categories = {
-                    'Comandante / Leyendas': [],
+                    'Comandante': [],
                     'Planeswalkers': [],
                     'Criaturas': [],
                     'Conjuros': [],
@@ -360,6 +394,11 @@
                 };
 
                 window.deckCardStore = {};
+
+                // Recuperar Comandante Asignado
+                const commanderKey = `commander_${currentDeckType}_${currentDeckId}`;
+                const savedCommander = JSON.parse(localStorage.getItem(commanderKey) || 'null');
+                let commanderFoundInDeck = false;
 
                 cards.forEach((card, idx) => {
                     const sCard = scryfallData[card.scryfall_id] || {};
@@ -375,9 +414,13 @@
                     const storeKey = `deck_card_${idx}`;
                     window.deckCardStore[storeKey] = { card: card, locations: [{ location: deckName, total_quantity: card.total_quantity, is_deck: true }] };
 
-                    if (typeLine.includes('legendary creature')) categories['Comandante / Leyendas'].push({ key: storeKey, ...card });
-                    else if (typeLine.includes('creature')) categories['Criaturas'].push({ key: storeKey, ...card });
+                    // Si es el comandante asignado, lo movemos a su propia zona
+                    if (savedCommander && card.scryfall_id === savedCommander.scryfall_id) {
+                        categories['Comandante'].push({ key: storeKey, ...card });
+                        commanderFoundInDeck = true;
+                    }
                     else if (typeLine.includes('planeswalker')) categories['Planeswalkers'].push({ key: storeKey, ...card });
+                    else if (typeLine.includes('creature')) categories['Criaturas'].push({ key: storeKey, ...card });
                     else if (typeLine.includes('land')) categories['Tierras'].push({ key: storeKey, ...card });
                     else if (typeLine.includes('instant')) categories['Instantáneos'].push({ key: storeKey, ...card });
                     else if (typeLine.includes('sorcery')) categories['Conjuros'].push({ key: storeKey, ...card });
@@ -386,14 +429,47 @@
                     else categories['Otros'].push({ key: storeKey, ...card });
                 });
 
+                // Si hay un comandante asignado pero no pertenece a las cartas del CSV
+                if (savedCommander && !commanderFoundInDeck) {
+                    const fakeStoreKey = `deck_card_cmd_fake`;
+                    window.deckCardStore[fakeStoreKey] = { card: savedCommander, locations: [{ location: deckName, total_quantity: 1, is_deck: true }] };
+                    categories['Comandante'].push({ key: fakeStoreKey, ...savedCommander, total_quantity: 1 });
+                    totalPrice += parseFloat(savedCommander.purchase_price || 0);
+                    totalCards += 1;
+                }
+
                 document.getElementById('deck-detail-count').textContent = `${totalCards} cartas`;
                 document.getElementById('deck-total-price').textContent = `${totalPrice.toFixed(2)} €`;
 
-                if (cards.length > 0) document.getElementById('deck-preview-img').src = cards[0].imageUrl;
+                // Mostrar imagen por defecto (o el comandante si lo hay)
+                if (savedCommander) document.getElementById('deck-preview-img').src = savedCommander.imageUrl;
+                else if (cards.length > 0) document.getElementById('deck-preview-img').src = cards[0].imageUrl;
 
-                let htmlContent = '';
+                // Construcción de la interfaz
+                let htmlContent = `
+                    <div class="mb-6 break-inside-avoid">
+                        <div class="flex items-center gap-3 border-b border-zinc-800/50 pb-1 mb-2">
+                            <h4 class="text-[11px] font-bold text-amber-500 uppercase tracking-wider">Comandante</h4>
+                            <button onclick="document.getElementById('commander-search-modal').classList.remove('hidden')" class="p-1 bg-zinc-800 hover:bg-amber-500/20 hover:text-amber-400 rounded transition text-zinc-400 border border-zinc-700" title="Asignar Comandante"><i data-lucide="plus" class="w-3 h-3"></i></button>
+                            ${savedCommander ? `<button onclick="removeCommander()" class="text-[9px] text-rose-400 hover:underline">Quitar</button>` : ''}
+                        </div>
+                        <ul class="space-y-1">
+                            ${categories['Comandante'].length > 0 ? categories['Comandante'].map(c => `
+                                <li onmouseover="document.getElementById('deck-preview-img').src='${c.imageUrl}'" 
+                                    onclick="openDeckCardModal('${c.key}', '${c.scryfall_id}')"
+                                    class="flex items-center gap-2 group cursor-pointer text-[12px] hover:bg-zinc-800/50 p-1 rounded transition border border-amber-500/20 bg-amber-500/5">
+                                    <i data-lucide="crown" class="w-3 h-3 text-amber-500 ml-1"></i>
+                                    <span class="text-zinc-300 group-hover:text-amber-400 transition truncate flex-1 font-bold">${c.name}</span>
+                                    <span class="text-zinc-600 group-hover:text-amber-500/80 text-[10px] transition mr-1">${c.priceFormatted}</span>
+                                </li>
+                            `).join('') : `<li class="text-xs text-zinc-500 italic px-1">Sin comandante asignado. Pulsa el botón +</li>`}
+                        </ul>
+                    </div>
+                `;
+
+                // Añadir el resto de categorías
                 Object.keys(categories).forEach(cat => {
-                    if (categories[cat].length === 0) return;
+                    if (cat === 'Comandante' || categories[cat].length === 0) return;
 
                     categories[cat].sort((a, b) => a.name.localeCompare(b.name));
                     const count = categories[cat].reduce((acc, c) => acc + c.total_quantity, 0);
@@ -417,11 +493,68 @@
                 });
 
                 document.getElementById('deck-detail-content').innerHTML = htmlContent;
+                renderIcons();
 
             } catch (e) {
                 console.error(e);
                 document.getElementById('deck-detail-content').innerHTML = '<div class="text-rose-400">Error al cargar el mazo.</div>';
             }
+        }
+
+        // --- ASIGNACIÓN DE COMANDANTE MANUAL ---
+        async function searchCommanderCard() {
+            const query = document.getElementById('commander-search-input').value.trim();
+            if (!query) return;
+            const resDiv = document.getElementById('commander-search-results');
+            resDiv.innerHTML = '<div class="text-center text-xs text-zinc-400 py-4"><i data-lucide="loader-2" class="w-4 h-4 animate-spin mx-auto mb-1"></i> Buscando...</div>';
+            renderIcons();
+            try {
+                const res = await fetch(`https://api.scryfall.com/cards/search?q=${encodeURIComponent(query)}`);
+                const data = await res.json();
+                if (data.data) {
+                    window.tempCmdSearch = data.data.slice(0, 10).map(c => ({
+                        name: c.name,
+                        scryfall_id: c.id,
+                        imageUrl: c.image_uris ? c.image_uris.normal : 'https://cards.scryfall.io/back.png',
+                        set_code: c.set,
+                        set_name: c.set_name,
+                        collector_number: c.collector_number,
+                        purchase_price: c.prices?.eur || 0,
+                        priceFormatted: c.prices?.eur ? `${c.prices.eur}€` : '-',
+                        rarity: c.rarity
+                    }));
+
+                    resDiv.innerHTML = window.tempCmdSearch.map((c, index) => `
+                        <div class="flex items-center justify-between p-2 hover:bg-zinc-800 rounded border border-zinc-700">
+                            <div class="flex items-center gap-2">
+                                <img src="${c.imageUrl}" class="w-8 h-12 object-cover rounded shadow">
+                                <div class="flex flex-col text-left">
+                                    <span class="text-xs font-bold text-zinc-200">${c.name}</span>
+                                </div>
+                            </div>
+                            <button onclick='setCommander(${index})' class="px-2 py-1 bg-zinc-700 hover:bg-amber-500 hover:text-black rounded text-xs font-bold transition">Elegir</button>
+                        </div>
+                    `).join('');
+                } else {
+                    resDiv.innerHTML = '<div class="text-xs text-rose-400 text-center py-4">No se encontraron cartas.</div>';
+                }
+            } catch (e) {
+                resDiv.innerHTML = '<div class="text-xs text-rose-400 text-center py-4">Error al conectar con Scryfall.</div>';
+            }
+        }
+
+        function setCommander(index) {
+            const cmdObj = window.tempCmdSearch[index];
+            const commanderKey = `commander_${currentDeckType}_${currentDeckId}`;
+            localStorage.setItem(commanderKey, JSON.stringify(cmdObj));
+            document.getElementById('commander-search-modal').classList.add('hidden');
+            openDeckView(currentDeckType, currentDeckId, currentDeckName); // Refrescar vista
+        }
+
+        function removeCommander() {
+            const commanderKey = `commander_${currentDeckType}_${currentDeckId}`;
+            localStorage.removeItem(commanderKey);
+            openDeckView(currentDeckType, currentDeckId, currentDeckName);
         }
 
         // --- VENTANA MODAL (Sirve para Colección y Mazos) ---
@@ -579,7 +712,6 @@
             });
         }
 
-        // --- INICIALIZACIÓN ---
         document.addEventListener('DOMContentLoaded', () => {
             loadStats();
             triggerSearch();
