@@ -85,6 +85,7 @@
         window.scryfallCardCache = window.scryfallCardCache || new Map();
         window.scryfallTranslationCache = window.scryfallTranslationCache || new Map();
         window.tempCmdSearch = [];
+        window.physicalCommanderCandidates = [];
         let isFetchingColors = false;
         const pendingColorIds = new Set();
         let searchController = null;
@@ -466,6 +467,25 @@
                     'Otros': []
                 };
 
+                window.physicalCommanderCandidates = type === 'physical'
+                    ? cards.map(card => {
+                        const sCard = scryfallData[card.scryfall_id] || {};
+                        const marketPrice = card.market_price ?? parseFloat(sCard.prices?.eur || 0);
+                        return {
+                            name: card.name,
+                            scryfall_id: card.scryfall_id,
+                            imageUrl: sCard.image_uris?.normal || getScryfallImageUrl(card.scryfall_id),
+                            set_code: card.set_code,
+                            set_name: card.set_name,
+                            collector_number: card.collector_number,
+                            market_price: marketPrice,
+                            priceFormatted: marketPrice ? `${marketPrice.toFixed(2)}€` : '-',
+                            rarity: card.rarity,
+                            typeLine: sCard.type_line || ''
+                        };
+                    }).filter(card => card.typeLine.toLowerCase().includes('legendary'))
+                    : [];
+
                 window.deckCardStore = {};
 
                 const commanderKey = `commander_${currentDeckType}_${currentDeckId}`;
@@ -518,7 +538,7 @@
                     <div class="mb-6 break-inside-avoid">
                         <div class="flex items-center gap-3 border-b border-zinc-800/50 pb-1 mb-2">
                             <h4 class="text-[11px] font-bold text-amber-500 uppercase tracking-wider">Comandante</h4>
-                            <button onclick="document.getElementById('commander-search-modal').classList.remove('hidden')" class="p-1 bg-zinc-800 hover:bg-amber-500/20 hover:text-amber-400 rounded transition text-zinc-400 border border-zinc-700" title="Asignar Comandante"><i data-lucide="plus" class="w-3 h-3"></i></button>
+                            <button onclick="openCommanderSearchModal()" class="p-1 bg-zinc-800 hover:bg-amber-500/20 hover:text-amber-400 rounded transition text-zinc-400 border border-zinc-700" title="Asignar Comandante"><i data-lucide="plus" class="w-3 h-3"></i></button>
                             ${savedCommander ? `<button onclick="removeCommander()" class="text-[9px] text-rose-400 hover:underline">Quitar</button>` : ''}
                         </div>
                         <ul class="space-y-1">
@@ -568,10 +588,64 @@
             }
         }
 
+        function openCommanderSearchModal() {
+            const modal = document.getElementById('commander-search-modal');
+            const input = document.getElementById('commander-search-input');
+            const hint = document.getElementById('commander-search-hint');
+            const results = document.getElementById('commander-search-results');
+            if (!modal || !input || !results) return;
+
+            input.value = '';
+            results.innerHTML = '';
+            if (currentDeckType === 'physical') {
+                if (hint) hint.textContent = 'Solo cartas legendarias que ya pertenecen a este mazo físico.';
+                searchCommanderCard();
+            } else if (hint) {
+                hint.textContent = 'Busca cualquier carta en Scryfall para asignarla al mazo.';
+            }
+            modal.classList.remove('hidden');
+            input.focus();
+        }
+
+        function renderCommanderSearchResults(cards, emptyMessage) {
+            const resDiv = document.getElementById('commander-search-results');
+            if (!resDiv) return;
+            if (cards.length === 0) {
+                resDiv.innerHTML = `<div class="text-xs text-zinc-400 text-center py-4">${emptyMessage}</div>`;
+                return;
+            }
+
+            resDiv.innerHTML = cards.map((c, index) => `
+                <div class="flex items-center justify-between p-2 hover:bg-zinc-800 rounded border border-zinc-700">
+                    <div class="flex items-center gap-2 min-w-0">
+                        <img src="${c.imageUrl}" class="w-8 h-12 object-cover rounded shadow" alt="">
+                        <div class="flex flex-col text-left min-w-0">
+                            <span class="text-xs font-bold text-zinc-200 truncate">${c.name}</span>
+                            ${c.typeLine ? `<span class="text-[10px] text-zinc-500 truncate">${c.typeLine}</span>` : ''}
+                        </div>
+                    </div>
+                    <button onclick='setCommander(${index})' class="ml-2 px-2 py-1 bg-zinc-700 hover:bg-amber-500 hover:text-black rounded text-xs font-bold transition">Elegir</button>
+                </div>
+            `).join('');
+        }
+
         async function searchCommanderCard() {
             const query = document.getElementById('commander-search-input').value.trim();
-            if (!query) return;
             const resDiv = document.getElementById('commander-search-results');
+            if (currentDeckType === 'physical') {
+                const normalizedQuery = query.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+                window.tempCmdSearch = window.physicalCommanderCandidates.filter(card => {
+                    const normalizedName = card.name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+                    return !normalizedQuery || normalizedName.includes(normalizedQuery);
+                });
+                renderCommanderSearchResults(
+                    window.tempCmdSearch,
+                    query ? 'No hay ninguna carta legendaria de este mazo con ese nombre.' : 'Este mazo no contiene cartas legendarias para asignar.'
+                );
+                return;
+            }
+
+            if (!query) return;
             resDiv.innerHTML = '<div class="text-center text-xs text-zinc-400 py-4"><i data-lucide="loader-2" class="w-4 h-4 animate-spin mx-auto mb-1"></i> Buscando...</div>';
             renderIcons();
             try {
@@ -590,17 +664,7 @@
                         rarity: c.rarity
                     }));
 
-                    resDiv.innerHTML = window.tempCmdSearch.map((c, index) => `
-                        <div class="flex items-center justify-between p-2 hover:bg-zinc-800 rounded border border-zinc-700">
-                            <div class="flex items-center gap-2">
-                                <img src="${c.imageUrl}" class="w-8 h-12 object-cover rounded shadow">
-                                <div class="flex flex-col text-left">
-                                    <span class="text-xs font-bold text-zinc-200">${c.name}</span>
-                                </div>
-                            </div>
-                            <button onclick='setCommander(${index})' class="px-2 py-1 bg-zinc-700 hover:bg-amber-500 hover:text-black rounded text-xs font-bold transition">Elegir</button>
-                        </div>
-                    `).join('');
+                    renderCommanderSearchResults(window.tempCmdSearch, 'No se encontraron cartas.');
                 } else {
                     resDiv.innerHTML = '<div class="text-xs text-rose-400 text-center py-4">No se encontraron cartas.</div>';
                 }
