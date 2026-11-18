@@ -34,7 +34,7 @@ def update_cardmarket_prices():
                 price = res.get("prices", {}).get("eur")
                 if price:
                     conn.execute(
-                        text("UPDATE cards_inventory SET purchase_price = :price WHERE scryfall_id = :s_id"),
+                        text("UPDATE cards_inventory SET market_price = :price WHERE scryfall_id = :s_id"),
                         {"price": float(price), "s_id": s_id}
                     )
                 time.sleep(0.1)
@@ -87,7 +87,7 @@ def search_cards(
             set_name, 
             collector_number, 
             rarity, 
-            purchase_price, 
+            market_price,
             location, 
             is_deck,
             SUM(quantity) as total_quantity
@@ -105,16 +105,16 @@ def search_cards(
         sql += " AND rarity = ANY(:rarities)"
         params["rarities"] = rarities_list
 
-    sql += " GROUP BY scryfall_id, name, set_code, set_name, collector_number, rarity, purchase_price, location, is_deck"
+    sql += " GROUP BY scryfall_id, name, set_code, set_name, collector_number, rarity, market_price, location, is_deck"
 
     if sort_by == "name_asc":
         sql += " ORDER BY name ASC"
     elif sort_by == "name_desc":
         sql += " ORDER BY name DESC"
     elif sort_by == "price_desc":
-        sql += " ORDER BY purchase_price DESC NULLS LAST"
+        sql += " ORDER BY market_price DESC NULLS LAST"
     elif sort_by == "price_asc":
-        sql += " ORDER BY purchase_price ASC NULLS LAST"
+        sql += " ORDER BY market_price ASC NULLS LAST"
 
     with engine.connect() as conn:
         result = conn.execute(text(sql), params).mappings().all()
@@ -144,29 +144,22 @@ async def upload_csv(
                 quantity = int(row.get(col_map.get('quantity', 'quantity'), 1))
                 foil = str(row.get(col_map.get('foil', 'foil'), '')).lower() == 'true'
                 rarity = str(row.get(col_map.get('rarity', 'rarity'), 'common'))
-                manabox_id = str(row.get(col_map.get('id', 'manabox_id'), ''))
                 scryfall_id = str(row.get(col_map.get('scryfall id', 'scryfall_id'), ''))
-                purchase_price = row.get(col_map.get('purchase price', 'purchase_price'), 0.0)
-                try:
-                    purchase_price = float(purchase_price) if pd.notna(purchase_price) else 0.0
-                except:
-                    purchase_price = 0.0
 
                 conn.execute(text("""
                     INSERT INTO cards_inventory (
                         name, set_code, set_name, collector_number, quantity, 
-                        foil, rarity, manabox_id, scryfall_id, purchase_price, 
+                        foil, rarity, scryfall_id,
                         location, is_deck
                     ) VALUES (
                         :name, :set_code, :set_name, :collector_number, :quantity,
-                        :foil, :rarity, :manabox_id, :scryfall_id, :purchase_price,
+                        :foil, :rarity, :scryfall_id,
                         :location, :is_deck
                     )
                 """), {
                     "name": name, "set_code": set_code, "set_name": set_name,
                     "collector_number": collector_number, "quantity": quantity,
-                    "foil": foil, "rarity": rarity, "manabox_id": manabox_id,
-                    "scryfall_id": scryfall_id, "purchase_price": purchase_price,
+                    "foil": foil, "rarity": rarity, "scryfall_id": scryfall_id,
                     "location": location, "is_deck": is_deck
                 })
 
@@ -251,10 +244,10 @@ def get_brewed_decks():
 @app.get("/api/decks/physical/{location}")
 def get_physical_deck_cards(location: str):
     sql = """
-        SELECT scryfall_id, name, set_code, set_name, collector_number, rarity, purchase_price, location, is_deck, SUM(quantity) as total_quantity
+        SELECT scryfall_id, name, set_code, set_name, collector_number, rarity, market_price, location, is_deck, SUM(quantity) as total_quantity
         FROM cards_inventory
         WHERE location = :location AND is_deck = true
-        GROUP BY scryfall_id, name, set_code, set_name, collector_number, rarity, purchase_price, location, is_deck
+        GROUP BY scryfall_id, name, set_code, set_name, collector_number, rarity, market_price, location, is_deck
     """
     with engine.connect() as conn:
         result = conn.execute(text(sql), {"location": location}).mappings().all()
@@ -263,7 +256,7 @@ def get_physical_deck_cards(location: str):
 @app.get("/api/decks/brews/{deck_id}")
 def get_brewed_deck_cards(deck_id: int):
     sql = """
-        SELECT scryfall_id, name, set_code, quantity as total_quantity, 0 as purchase_price
+        SELECT scryfall_id, name, set_code, quantity as total_quantity, 0 as market_price
         FROM brewed_deck_cards
         WHERE deck_id = :deck_id
     """

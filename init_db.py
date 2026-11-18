@@ -1,7 +1,6 @@
 import os
-from sqlalchemy import create_engine, Column, Integer, String, Boolean, Float, DateTime, ForeignKey, Text
+from sqlalchemy import create_engine, Column, Integer, String, Boolean, Float, ForeignKey, inspect, text
 from sqlalchemy.orm import declarative_base
-from datetime import datetime
 
 Base = declarative_base()
 
@@ -30,15 +29,8 @@ class CardInventory(Base):
     foil = Column(Boolean, default=False)
     rarity = Column(String)
     quantity = Column(Integer, default=1)
-    manabox_id = Column(String)
     scryfall_id = Column(String, index=True)
-    purchase_price = Column(Float)
-    misprint = Column(Boolean, default=False)
-    altered = Column(Boolean, default=False)
-    condition = Column(String)
-    language = Column(String)
-    purchase_price_currency = Column(String)
-    added_at = Column(DateTime, default=datetime.utcnow)
+    market_price = Column(Float)
     location = Column(String, default="Bulk General")
     is_deck = Column(Boolean, default=False)
 
@@ -63,6 +55,29 @@ class BrewedDeckCard(Base):
 def init_db():
     engine = create_engine(get_database_url())
     Base.metadata.create_all(engine)
+    migrate_inventory_schema(engine)
+
+
+def migrate_inventory_schema(engine):
+    """Migra instalaciones existentes al modelo de inventario simplificado."""
+    inspector = inspect(engine)
+    if not inspector.has_table(CardInventory.__tablename__):
+        return
+
+    columns = {column["name"] for column in inspector.get_columns(CardInventory.__tablename__)}
+    with engine.begin() as conn:
+        # El valor antes llamado purchase_price se usaba como precio de Cardmarket.
+        if "purchase_price" in columns and "market_price" not in columns:
+            conn.execute(text("ALTER TABLE cards_inventory RENAME COLUMN purchase_price TO market_price"))
+            columns.remove("purchase_price")
+            columns.add("market_price")
+
+        legacy_columns = {
+            "manabox_id", "misprint", "altered", "condition", "language",
+            "purchase_price_currency", "added_at",
+        }
+        for column in legacy_columns.intersection(columns):
+            conn.execute(text(f"ALTER TABLE cards_inventory DROP COLUMN {column}"))
 
 if __name__ == "__main__":
     init_db()
